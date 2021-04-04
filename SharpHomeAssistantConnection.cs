@@ -12,12 +12,19 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 	public sealed class SharpHomeAssistantConnection
 	{
 		private ClientWebSocket WebSocket { get; set; }
+
 		private SemaphoreSlim SendSemaphore { get; set; }
+
 		private SemaphoreSlim ReceiveSemaphore { get; set; }
+
+		private SemaphoreSlim CounterSemphaphore { get; set; }
+
 		private JsonSerializerOptions jsonSerializerOptions { get; set; }
 
 		public SharpHomeAssistantConnectionState State { get; private set; }
+
 		public string AccessToken { get; set; }
+
 		public int MaxMessageSize { get; set; }
 
 		private CancellationTokenSource ShutdownTokenSource { get; set; }
@@ -37,6 +44,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			jsonSerializerOptions.Converters.Add(new IncomingMessageConverter());
 			ShutdownTokenSource = new CancellationTokenSource();
 			ShutdownTokenSource.Cancel();
+			CommandIdCounter = 0;
 		}
 
 		public async Task<ConnectResult> ConnectAsync(Uri serverUri, CancellationToken cancellationToken)
@@ -116,7 +124,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				AuthMessage authMessage = new AuthMessage() { AccessToken = AccessToken };
 
 				await SendWebSocketMessageAsync<AuthMessage>(authMessage, cancellationToken);
-
 
 				using (ReceiveOperationResult result = await ReceiveWebsocketMessageAsync(cancellationToken))
 				{
@@ -236,7 +243,19 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				return new ReceiveMessageAsyncResult() { Message = message };
 			}
 		}
+		public int GetNextCommandId()
+		{
+			try
+			{
+				CounterSemphaphore.Wait();
+				return CommandIdCounter++;
+			}
+			finally
+			{
+				CounterSemphaphore.Release();
+			}
 
+		}
 		private void CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState expectedState, string methodName)
 		{
 			if (State != expectedState)

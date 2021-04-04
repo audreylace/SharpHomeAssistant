@@ -13,7 +13,10 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 		public void Dispose()
 		{
-			Stream.Dispose();
+			if (Stream != null)
+			{
+				Stream.Dispose();
+			}
 		}
 
 		public void ThrowIfFailed()
