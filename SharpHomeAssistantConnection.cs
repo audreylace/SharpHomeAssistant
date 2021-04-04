@@ -9,44 +9,6 @@ using AudreysCloud.Community.SharpHomeAssistant.Messages;
 
 namespace AudreysCloud.Community.SharpHomeAssistant
 {
-
-	internal class ReceiveOperationResult : IDisposable
-	{
-		public bool Success { get; set; }
-		public MemoryStream Stream { get; set; }
-		public bool OperationCancelled { get; set; }
-
-		public bool GotCloseMessage { get; set; }
-
-		public void Dispose()
-		{
-			Stream.Dispose();
-		}
-
-		public void ThrowIfFailed()
-		{
-			if (!Success)
-			{
-				if (GotCloseMessage)
-				{
-					throw new Exception("Receive operation failed because the close message was received on the web socket.");
-				}
-
-				if (OperationCancelled)
-				{
-					throw new Exception("Receive operation failed because the operation was cancelled.");
-				}
-
-				throw new Exception("Receive operation failed.");
-			}
-		}
-	}
-
-	public class ReceiveMessageAsyncResult
-	{
-		public bool CloseMessageReceived { get; set; }
-		public IncomingMessageBase Message { get; set; }
-	}
 	public sealed class SharpHomeAssistantConnection
 	{
 		private ClientWebSocket WebSocket { get; set; }
