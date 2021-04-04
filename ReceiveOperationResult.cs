@@ -11,11 +11,22 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 		public bool GotCloseMessage { get; set; }
 
+		public bool GotBinaryMessage { get; set; }
+		public bool MessageOverflow { get; set; }
+
 		public void Dispose()
 		{
 			if (Stream != null)
 			{
 				Stream.Dispose();
+			}
+		}
+
+		public void ThrowIfBinary()
+		{
+			if (GotBinaryMessage)
+			{
+				throw new Exception("Got Binary message when expecting a text based message.");
 			}
 		}
 
@@ -31,6 +42,11 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				if (OperationCancelled)
 				{
 					throw new Exception("Receive operation failed because the operation was cancelled.");
+				}
+
+				if (MessageOverflow)
+				{
+					throw new Exception("Message exceeded the max message size.");
 				}
 
 				throw new Exception("Receive operation failed.");

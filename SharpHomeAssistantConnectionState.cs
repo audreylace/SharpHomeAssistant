@@ -6,7 +6,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		Connecting,
 		Connected,
 		Closing,
-		Aborted,
-		Hijacked
+		Aborted
 	}
 }

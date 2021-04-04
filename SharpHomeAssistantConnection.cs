@@ -11,6 +11,13 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 {
 	public sealed class SharpHomeAssistantConnection
 	{
+		public SharpHomeAssistantConnectionState State { get; private set; }
+
+		public string AccessToken { get; set; }
+
+		public int MaxMessageSize { get; set; }
+
+		#region Private Properties
 		private ClientWebSocket WebSocket { get; set; }
 
 		private SemaphoreSlim SendSemaphore { get; set; }
@@ -21,12 +28,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 		private JsonSerializerOptions jsonSerializerOptions { get; set; }
 
-		public SharpHomeAssistantConnectionState State { get; private set; }
-
-		public string AccessToken { get; set; }
-
-		public int MaxMessageSize { get; set; }
-
 		private CancellationTokenSource ShutdownTokenSource { get; set; }
 
 		private int CommandIdCounter { get; set; }
@@ -34,7 +35,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		private bool ContinueReceive { get; set; }
 
 		private MemoryStream PreviousReceiveStream { get; set; }
-
+		#endregion Private Properties
 
 		public SharpHomeAssistantConnection()
 		{
@@ -46,6 +47,8 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			ShutdownTokenSource.Cancel();
 			CommandIdCounter = 0;
 		}
+
+		#region Public Methods
 
 		public async Task<ConnectResult> ConnectAsync(Uri serverUri, CancellationToken cancellationToken)
 		{
@@ -72,17 +75,13 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				throw;
 			}
 		}
+
 		public async Task<ConnectResult> ConnectUsingSocketAsync(ClientWebSocket webSocket, CancellationToken cancellationToken)
 		{
-			if (webSocket.State != WebSocketState.Open)
-			{
-				throw new ArgumentException(
-					String.Format("The supplied ClientWebSocket must have a state of open. The supplied ClientWebSocket had a state of {0}.", webSocket.State),
-					"webSocket"
-					);
-			}
 
 			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.NotConnected, nameof(ConnectUsingSocketAsync));
+			CheckAndThrowIfWebsocketNotOpen(webSocket, nameof(ConnectUsingSocketAsync));
+
 
 			try
 			{
@@ -106,13 +105,139 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			}
 		}
 
+
+		/// <Summary>
+		/// Closes the underlying websocket connection and transitiones the class into the not connected state.
+		/// </Summary>
+		public async Task CloseAsync(CancellationToken token)
+		{
+			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.Connected, nameof(CloseAsync));
+
+			State = SharpHomeAssistantConnectionState.Closing;
+
+			ShutdownTokenSource.Cancel();
+
+			if (WebSocket.State == WebSocketState.Open || WebSocket.State == WebSocketState.CloseReceived || WebSocket.State == WebSocketState.CloseSent)
+			{
+				await WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, default(string), token);
+			}
+
+			WebSocket.Dispose();
+			WebSocket = null;
+			State = SharpHomeAssistantConnectionState.NotConnected;
+		}
+
+		public void Abort()
+		{
+			State = SharpHomeAssistantConnectionState.Aborted;
+			ShutdownTokenSource.Cancel();
+			WebSocket.Abort();
+			WebSocket.Dispose();
+			WebSocket = null;
+		}
+
+		public async Task SendMessageAsync<MessageType>(MessageType messageBase, CancellationToken cancellationToken) where MessageType : OutgoingMessageBase
+		{
+
+			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.Connected, nameof(SendMessageAsync));
+			CheckAndThrowIfWebsocketNotOpen(WebSocket, nameof(SendMessageAsync));
+
+			CancellationToken shutdownToken = ShutdownTokenSource.Token;
+
+			CancellationTokenSource joinedSource = CancellationTokenSource.CreateLinkedTokenSource(shutdownToken, cancellationToken);
+
+			await SendWebSocketMessageAsync<MessageType>(messageBase, joinedSource.Token);
+		}
+
+		public async Task<ReceiveMessageAsyncResult> ReceiveMessageAsync(CancellationToken cancellationToken)
+		{
+			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.Connected, nameof(ReceiveMessageAsync));
+
+			// 
+			// Assign in local context in case a new shutsown token source is 
+			// created later because of another async operation.
+			//
+			CancellationToken shutdownToken = ShutdownTokenSource.Token;
+
+			CancellationTokenSource joinedSource = CancellationTokenSource.CreateLinkedTokenSource(shutdownToken, cancellationToken);
+			using (ReceiveOperationResult result = await ReceiveWebsocketMessageAsync(joinedSource.Token))
+			{
+				if (!result.Success)
+				{
+					if (result.OperationCancelled)
+					{
+						cancellationToken.ThrowIfCancellationRequested();
+						shutdownToken.ThrowIfCancellationRequested();
+						//
+						// Throw this if for some reason the other tokens were not cancelled.
+						//
+						throw new Exception("Operation was cancelled but neither cancellationToken nor shutdownToken is cancelled. This is unexpected and likely indicates a programming error.");
+					}
+
+					if (result.GotCloseMessage)
+					{
+						return new ReceiveMessageAsyncResult()
+						{
+							Status = ReceiveMessageAsyncStatus.CloseMessageReceived
+						};
+					}
+
+					if (result.MessageOverflow)
+					{
+						return new ReceiveMessageAsyncResult()
+						{
+							Status = ReceiveMessageAsyncStatus.MessageOverflow
+						};
+					}
+
+				}
+
+				if (result.GotBinaryMessage)
+				{
+					return new ReceiveMessageAsyncResult()
+					{
+						Status = ReceiveMessageAsyncStatus.GotBinaryMessage,
+						BinaryMessage = result.Stream.ToArray()
+					};
+				}
+
+				//
+				// Only used joined source for receive operations. 
+				// After the message is written to the memory stream
+				// we should just deserialize it and return it.
+				//
+				IncomingMessageBase message = await JsonSerializer.DeserializeAsync<IncomingMessageBase>(result.Stream, jsonSerializerOptions, cancellationToken);
+				return new ReceiveMessageAsyncResult() { Message = message, Status = ReceiveMessageAsyncStatus.MessageReceived };
+			}
+		}
+
+		public int GetNextCommandId()
+		{
+			try
+			{
+				CounterSemphaphore.Wait();
+				return CommandIdCounter++;
+			}
+			finally
+			{
+				CounterSemphaphore.Release();
+			}
+
+		}
+
+		#endregion Public Methods
+
+		#region Private Methods
+
 		private async Task<ConnectResult> NegotiateConnection(CancellationToken cancellationToken)
 		{
+			CheckAndThrowIfWebsocketNotOpen(WebSocket, nameof(NegotiateConnection));
 			try
 			{
 				using (ReceiveOperationResult result = await ReceiveWebsocketMessageAsync(cancellationToken))
 				{
 					result.ThrowIfFailed();
+					result.ThrowIfBinary();
 
 					IncomingMessageBase message = await JsonSerializer.DeserializeAsync<IncomingMessageBase>(result.Stream, jsonSerializerOptions, cancellationToken);
 					if (message.TypeId != AuthRequiredMessage.MessageType)
@@ -128,6 +253,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				using (ReceiveOperationResult result = await ReceiveWebsocketMessageAsync(cancellationToken))
 				{
 					result.ThrowIfFailed();
+					result.ThrowIfBinary();
 
 					IncomingMessageBase message = await JsonSerializer.DeserializeAsync<IncomingMessageBase>(result.Stream, jsonSerializerOptions, cancellationToken);
 					if (message.TypeId != AuthResultMessage.MessageType)
@@ -166,96 +292,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 		}
 
-		/// <Summary>
-		/// Closes the underlying websocket connection and transitiones the class into the not connected state.
-		/// </Summary>
-		public async Task CloseAsync(CancellationToken token)
-		{
-			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.Connected, nameof(CloseAsync));
-
-			State = SharpHomeAssistantConnectionState.Closing;
-
-			ShutdownTokenSource.Cancel();
-
-			await WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, default(string), token);
-			WebSocket.Dispose();
-			WebSocket = null;
-			State = SharpHomeAssistantConnectionState.NotConnected;
-		}
-
-		public void Abort()
-		{
-			State = SharpHomeAssistantConnectionState.Aborted;
-			ShutdownTokenSource.Cancel();
-			WebSocket.Abort();
-			WebSocket.Dispose();
-			WebSocket = null;
-		}
-
-		public async Task SendMessageAsync(OutgoingMessageBase messageBase, CancellationToken cancellationToken)
-		{
-
-			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.Connected, nameof(SendMessageAsync));
-
-			CancellationToken shutdownToken = ShutdownTokenSource.Token;
-
-			CancellationTokenSource joinedSource = CancellationTokenSource.CreateLinkedTokenSource(shutdownToken, cancellationToken);
-
-			await SendWebSocketMessageAsync<object>(messageBase, joinedSource.Token);
-		}
-
-		public async Task<ReceiveMessageAsyncResult> ReceiveMessageAsync(CancellationToken cancellationToken)
-		{
-			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.Connected, nameof(ReceiveMessageAsync));
-
-			// 
-			// Assign in local context in case a new shutsown token source is 
-			// created later because of another async operation.
-			//
-			CancellationToken shutdownToken = ShutdownTokenSource.Token;
-
-			CancellationTokenSource joinedSource = CancellationTokenSource.CreateLinkedTokenSource(shutdownToken, cancellationToken);
-			using (ReceiveOperationResult result = await ReceiveWebsocketMessageAsync(joinedSource.Token))
-			{
-				if (!result.Success)
-				{
-					if (result.OperationCancelled)
-					{
-						cancellationToken.ThrowIfCancellationRequested();
-						shutdownToken.ThrowIfCancellationRequested();
-						//
-						// Throw this if for some reason the other tokens were not cancelled.
-						//
-						throw new Exception("Operation was cancelled but neither cancellationToken nor shutdownToken is cancelled. This is unexpected and likely indicates a programming error.");
-					}
-
-					if (result.GotCloseMessage)
-					{
-						return new ReceiveMessageAsyncResult() { CloseMessageReceived = true };
-					}
-				}
-				//
-				// Only used joined source for receive operations. 
-				// After the message is written to the memory stream
-				// we should just deserialize it and return it.
-				//
-				IncomingMessageBase message = await JsonSerializer.DeserializeAsync<IncomingMessageBase>(result.Stream, jsonSerializerOptions, cancellationToken);
-				return new ReceiveMessageAsyncResult() { Message = message };
-			}
-		}
-		public int GetNextCommandId()
-		{
-			try
-			{
-				CounterSemphaphore.Wait();
-				return CommandIdCounter++;
-			}
-			finally
-			{
-				CounterSemphaphore.Release();
-			}
-
-		}
 		private void CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState expectedState, string methodName)
 		{
 			if (State != expectedState)
@@ -264,12 +300,21 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			}
 		}
 
+		private void CheckAndThrowIfWebsocketNotOpen(ClientWebSocket socket, string methodName)
+		{
+			throw new InvalidOperationException(
+					String.Format("The supplied ClientWebSocket must have a state of open. The supplied ClientWebSocket had a state of {0} in method {1}.", socket.State, methodName)
+					);
+		}
+
 		private async Task SendWebSocketMessageAsync<T>(T message, CancellationToken cancellationToken)
 		{
+			CheckAndThrowIfWebsocketNotOpen(WebSocket, nameof(SendWebSocketMessageAsync));
+
 			await SendSemaphore.WaitAsync(cancellationToken);
 			try
 			{
-				await WebSocket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(message, jsonSerializerOptions),
+				await WebSocket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(message, typeof(T), jsonSerializerOptions),
 					  WebSocketMessageType.Text,
 					  true,
 					  cancellationToken);
@@ -279,8 +324,10 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				SendSemaphore.Release();
 			}
 		}
+
 		private async Task<ReceiveOperationResult> ReceiveWebsocketMessageAsync(CancellationToken cancellationToken)
 		{
+			CheckAndThrowIfWebsocketNotOpen(WebSocket, nameof(ReceiveWebsocketMessageAsync));
 
 			try
 			{
@@ -290,6 +337,8 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			{
 				return new ReceiveOperationResult() { Success = false, OperationCancelled = true };
 			}
+
+			CheckAndThrowIfWebsocketNotOpen(WebSocket, nameof(ReceiveWebsocketMessageAsync));
 
 			byte[] buffer = new byte[128];
 			System.IO.MemoryStream stream;
@@ -321,33 +370,57 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 					if (result.MessageType == WebSocketMessageType.Close)
 					{
-						return new ReceiveOperationResult() { Stream = stream, Success = false, GotCloseMessage = true };
-					}
-					else if (result.MessageType == WebSocketMessageType.Binary)
-					{
-						throw new SharpHomeAssistantProtocolException("Got binary message from websocket but expected message to be in text format.");
+						continue; //Drain the close message
 					}
 
 					receiveIncomplete = true;
 					//
 					// Don't pass in cancellation token here. Write the message to the stream to ensure
-					// the cancellation does not result in an inconsistent state.
+					// that a cancellation does not result in an inconsistent state.
 					//
 					await stream.WriteAsync(buffer, 0, result.Count);
 
 					if (MaxMessageSize > 0 && stream.Length > MaxMessageSize)
 					{
-						// Just completely abort in this case.
-						Abort();
-
-						throw new SharpHomeAssistantProtocolException(String.Format("Websocket message exceeds max size of {0} bytes", MaxMessageSize));
+						return new ReceiveOperationResult { Success = false, MessageOverflow = true };
 					}
 
 				} while (!result.EndOfMessage);
 
 				stream.Seek(0, System.IO.SeekOrigin.Begin);
 
-				return new ReceiveOperationResult() { Stream = stream, Success = true };
+
+				if (result.MessageType == WebSocketMessageType.Text)
+				{
+					return new ReceiveOperationResult()
+					{
+						Stream = stream,
+						Success = true
+					};
+				}
+				else if (result.MessageType == WebSocketMessageType.Binary)
+				{
+
+					return new ReceiveOperationResult()
+					{
+						Stream = stream,
+						Success = true,
+						GotBinaryMessage = true
+					};
+
+				}
+				else if (result.MessageType == WebSocketMessageType.Close)
+				{
+					return new ReceiveOperationResult()
+					{
+						Success = false,
+						GotCloseMessage = true
+					};
+				}
+				else
+				{
+					throw new NotImplementedException();
+				}
 
 			}
 			catch (OperationCanceledException)
@@ -364,5 +437,9 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				ReceiveSemaphore.Release();
 			}
 		}
+
+		#endregion Private Methods
+
+
 	}
 }
