@@ -45,7 +45,10 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			jsonSerializerOptions.Converters.Add(new IncomingMessageConverter());
 			ShutdownTokenSource = new CancellationTokenSource();
 			ShutdownTokenSource.Cancel();
-			CommandIdCounter = 0;
+			CommandIdCounter = 1;
+			SendSemaphore = new SemaphoreSlim(1, 1);
+			ReceiveSemaphore = new SemaphoreSlim(1, 1);
+			CounterSemphaphore = new SemaphoreSlim(1, 1);
 		}
 
 		#region Public Methods
@@ -111,7 +114,11 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// </Summary>
 		public async Task CloseAsync(CancellationToken token)
 		{
-			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.Connected, nameof(CloseAsync));
+			if (State != SharpHomeAssistantConnectionState.Closing && State != SharpHomeAssistantConnectionState.Connected)
+			{
+				throw new InvalidOperationException(String.Format("{0} can only be called in a Closing state or Connected state. The class is current in the {1} state.", nameof(CloseAsync), State));
+			}
+
 
 			State = SharpHomeAssistantConnectionState.Closing;
 
@@ -176,6 +183,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 					if (result.GotCloseMessage)
 					{
+						State = SharpHomeAssistantConnectionState.Closing;
 						return new ReceiveMessageAsyncResult()
 						{
 							Status = ReceiveMessageAsyncStatus.CloseMessageReceived
@@ -275,7 +283,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			}
 			catch (JsonException ex)
 			{
-				await WebSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, ex.Message, cancellationToken);
+				await WebSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, "Internal Server error", cancellationToken);
 				WebSocket.Dispose();
 				WebSocket = null;
 				return new ConnectResult() { Success = false, Exception = ex };
@@ -296,15 +304,18 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		{
 			if (State != expectedState)
 			{
-				throw new InvalidOperationException(String.Format("{0} can only be called in the {1}} state. The class is current in the {2} state.", methodName, expectedState, State));
+				throw new InvalidOperationException(String.Format("{0} can only be called in the {1} state. The class is current in the {2} state.", methodName, expectedState, State));
 			}
 		}
 
 		private void CheckAndThrowIfWebsocketNotOpen(ClientWebSocket socket, string methodName)
 		{
-			throw new InvalidOperationException(
-					String.Format("The supplied ClientWebSocket must have a state of open. The supplied ClientWebSocket had a state of {0} in method {1}.", socket.State, methodName)
-					);
+			if (WebSocket.State != WebSocketState.Open)
+			{
+				throw new InvalidOperationException(
+						String.Format("The supplied ClientWebSocket must have a state of open. The supplied ClientWebSocket had a state of {0} in method {1}.", socket.State, methodName)
+						);
+			}
 		}
 
 		private async Task SendWebSocketMessageAsync<T>(T message, CancellationToken cancellationToken)
@@ -314,7 +325,10 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			await SendSemaphore.WaitAsync(cancellationToken);
 			try
 			{
-				await WebSocket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(message, typeof(T), jsonSerializerOptions),
+				byte[] messageBytes = JsonSerializer.SerializeToUtf8Bytes(message, typeof(T), jsonSerializerOptions);
+
+				Console.WriteLine(System.Text.Encoding.Default.GetString(messageBytes));
+				await WebSocket.SendAsync(messageBytes,
 					  WebSocketMessageType.Text,
 					  true,
 					  cancellationToken);
