@@ -4,10 +4,11 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public class AuthResultMessage : HomeAssistantMessage
+	public class AuthResultMessage : IncomingMessageBase
 	{
 		public const string AuthOkType = "auth_ok";
 		public const string AuthInvalidType = "auth_invalid";
+
 		public const string MessageType = "auth_result";
 		public override string TypeId => MessageType;
 
@@ -61,7 +62,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 					break;
 				case AuthResultMessage.AuthInvalidType:
 					writer.WriteStartObject();
-					writer.WriteString(HomeAssistantMessage.PropertyTypeJsonName, AuthResultMessage.AuthInvalidType);
+					writer.WriteString(IncomingMessageBase.PropertyTypeJsonName, AuthResultMessage.AuthInvalidType);
 					writer.WriteString("mesage", message.Message);
 					writer.WriteEndObject();
 					break;

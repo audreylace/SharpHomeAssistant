@@ -3,7 +3,7 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public class AuthRequiredMessage : HomeAssistantMessage
+	public class AuthRequiredMessage : IncomingMessageBase
 	{
 		public const string MessageType = "auth_required";
 		public override string TypeId => MessageType;
@@ -24,7 +24,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		public void Write(Utf8JsonWriter writer, IAlgebraicType<string> value, JsonSerializerOptions options)
 		{
 			writer.WriteStartObject();
-			writer.WriteString(HomeAssistantMessage.PropertyTypeJsonName, AuthRequiredMessage.MessageType);
+			writer.WriteString(IncomingMessageBase.PropertyTypeJsonName, AuthRequiredMessage.MessageType);
 			writer.WriteEndObject();
 		}
 	}
