@@ -11,6 +11,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		public const string MessageType = "subscribe_events";
 
 		[JsonPropertyName("event_type")]
+		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
 		public string EventType { get; set; }
 
 		public override string GetTypeId()

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
@@ -6,6 +7,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	{
 		public const string PropertyTypeJsonName = "type";
 
+		[JsonIgnore]
 		public abstract string TypeId { get; }
 	}
 }
