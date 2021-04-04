@@ -7,6 +7,11 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 {
 	public abstract class AlgebraicTypeConverter<TypeIdType> : JsonConverter<IAlgebraicType<TypeIdType>>
 	{
+
+		public AlgebraicTypeConverter()
+		{
+			Converters = new List<IAlgebraicTypeConverter<TypeIdType>>();
+		}
 		protected List<IAlgebraicTypeConverter<TypeIdType>> Converters { get; set; }
 
 		protected abstract TypeIdType GetTypeId(ref Utf8JsonReader reader, JsonSerializerOptions options);
@@ -28,30 +33,35 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 		{
 			Utf8JsonReader getTypeIdReader = reader;
 
-			TypeIdType elementType = GetTypeId(ref getTypeIdReader, options);
+			JsonSerializerOptions optionClone = new JsonSerializerOptions(options);
+			optionClone.Converters.Remove(this);
+
+			TypeIdType elementType = GetTypeId(ref getTypeIdReader, optionClone);
 
 			int index = Converters.FindIndex((c) => c.CanConvert(elementType));
 
 			if (index != -1)
 			{
-				return Converters[index].Read(ref reader, elementType, options);
+				return Converters[index].Read(ref reader, elementType, optionClone);
 			}
 
-			return OnReadConverterNotFound(ref reader, elementType, options);
+			return OnReadConverterNotFound(ref reader, elementType, optionClone);
 
 		}
 		public override void Write(Utf8JsonWriter writer, IAlgebraicType<TypeIdType> value, JsonSerializerOptions options)
 		{
+			JsonSerializerOptions optionClone = new JsonSerializerOptions(options);
+			optionClone.Converters.Remove(this);
 			int index = Converters.FindIndex((c) => c.CanConvert(value.TypeId));
 
 			if (index == -1)
 			{
 
-				OnWriteConverterNotFound(writer, value, options);
+				OnWriteConverterNotFound(writer, value, optionClone);
 			}
 			else
 			{
-				Converters[index].Write(writer, value, options);
+				Converters[index].Write(writer, value, optionClone);
 			}
 		}
 

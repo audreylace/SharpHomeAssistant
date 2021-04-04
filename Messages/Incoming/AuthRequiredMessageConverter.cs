@@ -12,6 +12,9 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 
 		public IAlgebraicType<string> Read(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
 		{
+			using (JsonDocument document = JsonDocument.ParseValue(ref reader)) //Parse the value to advance the reader
+			{ }
+
 			return new AuthRequiredMessage();
 		}
 

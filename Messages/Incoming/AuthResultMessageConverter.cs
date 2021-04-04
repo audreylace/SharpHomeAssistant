@@ -20,20 +20,22 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 
 		public IAlgebraicType<string> Read(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
 		{
-			switch (typeToConvert)
+			using (JsonDocument document = JsonDocument.ParseValue(ref reader))
 			{
-				case AuthResultMessage.AuthOkType:
-					return new AuthResultMessage() { Success = true };
-				case AuthResultMessage.AuthInvalidType:
-					string failReason;
-					using (JsonDocument document = JsonDocument.ParseValue(ref reader))
-					{
+				switch (typeToConvert)
+				{
+					case AuthResultMessage.AuthOkType:
+						return new AuthResultMessage() { Success = true };
+					case AuthResultMessage.AuthInvalidType:
+						string failReason;
+
 						JsonElement messageElement = document.RootElement.GetProperty("message");
 						failReason = messageElement.GetString();
-					}
-					return new AuthResultMessage() { Success = false, Message = failReason };
-				default:
-					throw new JsonException();
+
+						return new AuthResultMessage() { Success = false, Message = failReason };
+					default:
+						throw new JsonException();
+				}
 			}
 		}
 

@@ -16,6 +16,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			Converters.Add(new AuthResultMessageConverter());
 			Converters.Add(new PongMessageConverter());
 			Converters.Add(new ResultMessageConverter());
+			Converters.Add(new EventMessageConverter());
 		}
 		protected override string GetTypeId(ref Utf8JsonReader reader, JsonSerializerOptions options)
 		{
