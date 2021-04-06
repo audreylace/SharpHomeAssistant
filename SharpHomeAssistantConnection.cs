@@ -11,6 +11,8 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 {
 	public sealed class SharpHomeAssistantConnection
 	{
+		public const long SafeCommandCounterStartPos = 100;
+
 		public SharpHomeAssistantConnectionState State { get; private set; }
 
 		public string AccessToken { get; set; }
@@ -30,7 +32,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 		private CancellationTokenSource ShutdownTokenSource { get; set; }
 
-		private int CommandIdCounter { get; set; }
+		private long CommandIdCounter { get; set; }
 
 		private bool ContinueReceive { get; set; }
 
@@ -64,13 +66,22 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				await WebSocket.ConnectAsync(serverUri, cancellationToken);
 				ConnectResult result = await NegotiateConnection(cancellationToken);
 
+
 				if (result.Success)
 				{
+					await CounterSemphaphore.WaitAsync(cancellationToken);
+					CommandIdCounter = Math.Max(CommandIdCounter, SafeCommandCounterStartPos);
+					CounterSemphaphore.Release();
+
 					State = SharpHomeAssistantConnectionState.Connected;
 				}
 
 				ShutdownTokenSource = new CancellationTokenSource();
 				return result;
+			}
+			catch (WebSocketException ex)
+			{
+				return new ConnectResult() { Success = false, Exception = ex };
 			}
 			catch (Exception)
 			{
@@ -118,7 +129,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			{
 				throw new InvalidOperationException(String.Format("{0} can only be called in a Closing state or Connected state. The class is current in the {1} state.", nameof(CloseAsync), State));
 			}
-
 
 			State = SharpHomeAssistantConnectionState.Closing;
 
@@ -219,7 +229,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			}
 		}
 
-		public int GetNextCommandId()
+		public long GetNextCommandId()
 		{
 			try
 			{
@@ -327,7 +337,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			{
 				byte[] messageBytes = JsonSerializer.SerializeToUtf8Bytes(message, typeof(T), jsonSerializerOptions);
 
-				Console.WriteLine(System.Text.Encoding.Default.GetString(messageBytes));
 				await WebSocket.SendAsync(messageBytes,
 					  WebSocketMessageType.Text,
 					  true,

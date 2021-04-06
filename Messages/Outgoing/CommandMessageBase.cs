@@ -8,7 +8,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	public abstract class CommandMessageBase : OutgoingMessageBase
 	{
 		[JsonPropertyName("id")]
-		public int CommandId { get; set; }
+		public long CommandId { get; set; }
 	}
 
 	// public abstract class CommandMessageBaseConverter<MessageType> : IAlgebraicTypeConverter<string> where MessageType : CommandMessageBase
