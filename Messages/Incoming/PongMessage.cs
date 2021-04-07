@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public class PongMessage : IncomingMessageBase
+	internal class PongMessage : IncomingMessageBase
 	{
 		public const string MessageType = "pong";
 

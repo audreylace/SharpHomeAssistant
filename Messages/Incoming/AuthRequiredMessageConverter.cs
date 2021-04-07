@@ -3,7 +3,7 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public class AuthRequiredMessageConverter : IAlgebraicTypeConverter<string>
+	internal class AuthRequiredMessageConverter : IAlgebraicTypeConverter<string>
 	{
 		public bool CanConvert(string typeId)
 		{

@@ -1,6 +1,6 @@
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public class AuthResultMessage : IncomingMessageBase
+	internal class AuthResultMessage : IncomingMessageBase
 	{
 		public const string AuthOkType = "auth_ok";
 		public const string AuthInvalidType = "auth_invalid";

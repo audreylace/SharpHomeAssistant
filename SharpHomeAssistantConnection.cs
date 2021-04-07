@@ -66,7 +66,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				await WebSocket.ConnectAsync(serverUri, cancellationToken);
 				ConnectResult result = await NegotiateConnection(cancellationToken);
 
-
 				if (result.Success)
 				{
 					await CounterSemphaphore.WaitAsync(cancellationToken);

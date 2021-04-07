@@ -4,7 +4,7 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public class AuthMessage : OutgoingMessageBase
+	internal class AuthMessage : OutgoingMessageBase
 	{
 		public const string MessageType = "auth";
 		public override string GetTypeId()

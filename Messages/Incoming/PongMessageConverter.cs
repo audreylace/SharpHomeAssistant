@@ -4,7 +4,7 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public class PongMessageConverter : IAlgebraicTypeConverter<string>
+	internal class PongMessageConverter : IAlgebraicTypeConverter<string>
 	{
 		public bool CanConvert(string typeId)
 		{
