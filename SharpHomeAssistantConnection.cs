@@ -3,12 +3,14 @@ using System.IO;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using AudreysCloud.Community.SharpHomeAssistant.Exceptions;
 using AudreysCloud.Community.SharpHomeAssistant.Messages;
 
 namespace AudreysCloud.Community.SharpHomeAssistant
 {
+
 	public sealed class SharpHomeAssistantConnection
 	{
 		public const long SafeCommandCounterStartPos = 100;
@@ -18,6 +20,9 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		public string AccessToken { get; set; }
 
 		public int MaxMessageSize { get; set; }
+
+
+
 
 		#region Private Properties
 		private ClientWebSocket WebSocket { get; set; }

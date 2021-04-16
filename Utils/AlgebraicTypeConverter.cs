@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+#nullable enable
 namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 {
 	public abstract class AlgebraicTypeConverter<TypeIdType> : JsonConverter<IAlgebraicType<TypeIdType>>

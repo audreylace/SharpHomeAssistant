@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+#nullable enable
+
 namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 {
 	public interface IAlgebraicTypeConverter<TypeIdType>
