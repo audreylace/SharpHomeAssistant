@@ -23,40 +23,13 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		private ClientWebSocket _socket;
 
 		/// <summary>
-		/// Used to signal ReceiveLoopAsync to stop as well as indicate to sources that 
-		/// messages are no longer being received.
-		/// </summary>
-		/// <remarks> This will be null until the connection has been established </remarks>
-		/// <see cref="ReceiveLoopAsync" />
-		/// <see cref="DoReceiveAsync" />
-		private CancellationTokenSource _readChannelCancellationSource;
-
-		/// <summary>
-		/// Used to signal WriteLoopAsync to stop as well as indicate to sinks that 
-		/// messages are no longer being sent.
-		/// </summary>
-		/// <remarks> This will be null until the connection has been established </remarks>
-		/// <see cref="WriteLoopAsync" />
-		/// <see cref="DoSendAsync" />
-		private CancellationTokenSource _writeChannelCancellationSource;
-
-		/// <summary>
-		/// Used to cancel all pending send and receive operations waiting on their respective channels.
-		/// </summary>
-		/// <remarks> This will be null until the connection has been established </remarks>
-		/// <see cref="SendMessageAsync" />
-		/// <see cref="ReceiveMessageAsync" />
-		private CancellationTokenSource _disconnectingCancellationSource;
-
-
-		/// <summary>
 		/// Channel used to pass messages read from the websocket connection to receivers with backpressure.
 		/// </summary>
 		/// <remarks> This will be null until the connection has been established </remarks>
 		/// <see cref="ReceiveMessageAsync" />
 		/// <see cref="DoReceiveAsync" />
 		/// <see cref="ReceiveLoopAsync" />
-		private Channel<MemoryStream> _readChannel;
+		private Channel<MemoryStream> _receiveChannel;
 
 
 		/// <summary>
@@ -66,7 +39,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// <see cref="SendMessageAsync" />
 		/// <see cref="DoSendAsync" />
 		/// <see cref="SendLoopAsync" />		
-		private Channel<MemoryStream> _writeChannel;
+		private Channel<MemoryStream> _sendChannel;
 
 
 		/// <summary>
@@ -87,7 +60,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// </summary>
 		/// <remarks> Messages are sent over this channel via the DoSendAsync method. </remarks>
 		/// <see cref="SendLoopAsync" />
-		/// <see cref="_writeChannel" />
+		/// <see cref="_sendChannel" />
 		/// <see cref="DoSendAsync" />
 		private Task _sendTask;
 
@@ -99,7 +72,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// <see cref="ReceiveLoopAsync" />
 		/// <see creg="_readChannel" />
 		/// <see cref="DoReceiveAsync" />
-		private Task<KeyValuePair<WebSocketCloseStatus, string>> _receiveTask;
+		private Task _receiveTask;
 
 		/// <summary>
 		/// State of the connection.
@@ -223,27 +196,37 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 			try
 			{
-				//
-				// End all actions on the API.
-				//
-				_disconnectingCancellationSource.Cancel();
-
 				State = SharpHomeAssistantConnectionState.Closing;
 
-				// 
-				// End existing receive and send operations to avoid WebSocketExceptions from being
-				// thrown by the ClientWebSocket and then wait for the tasks to be done.
-				//
-				_writeChannelCancellationSource.Cancel();
-				_readChannelCancellationSource.Cancel();
 
+				//
+				// Drain all pending messages to send.
+				//
+				_sendChannel.Writer.TryComplete();
 				await _sendTask;
-				KeyValuePair<WebSocketCloseStatus, string> receiveResult = await _receiveTask;
 
 				//
-				// Populate the close with the end state of the ReceiveLoopAsync.
+				// No more messages to send so now we close the output.
 				//
-				await _socket.CloseAsync(receiveResult.Key, receiveResult.Value, cancelAndAbort.Token);
+				await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing connection", cancelAndAbort.Token);
+
+				//
+				// Wait for and join the receive task.
+				//
+				await _receiveTask;
+
+
+				//
+				// Transition to the closed state, if we are not there already.
+				//
+				if (_socket.State == WebSocketState.CloseReceived || _socket.State == WebSocketState.CloseSent)
+				{
+					await _socket.CloseAsync(_socket.CloseStatus ?? WebSocketCloseStatus.NormalClosure, _socket.CloseStatusDescription ?? "Closing Connection", cancelAndAbort.Token);
+				}
+				else if (_socket.State != WebSocketState.Closed)
+				{
+					throw new Exception(String.Format("The websocket should have closed, but instead it has a state of {0}", _socket.State));
+				}
 
 				State = SharpHomeAssistantConnectionState.NotConnected;
 
@@ -262,10 +245,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// </summary>
 		public void Abort()
 		{
-			_disconnectingCancellationSource?.Cancel();
-
-			_readChannelCancellationSource?.Cancel();
-			_writeChannelCancellationSource?.Cancel();
 
 			_forceShutdown?.Cancel();
 
@@ -293,17 +272,15 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// can happen for many reasons from consuming API calling CloseAsync to the remote connection sending a request close message.
 		/// </exception>
 		/// <exception cref="SharpHomeAssistantProtocolException">Thrown if for some reason the message can not be serialized into JSON</exception>
-		/// <returns>The task representing the async send operation.</returns>
-		public async Task SendMessageAsync<TMessageType>(TMessageType message, CancellationToken cancellationToken) where TMessageType : OutgoingMessageBase
+		/// <returns>The task representing the async send operation. True if the message was queued to be sent, false otherwise.</returns>
+		public async Task<bool> SendMessageAsync<TMessageType>(TMessageType message, CancellationToken cancellationToken) where TMessageType : OutgoingMessageBase
 		{
 			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.Connected, nameof(SendMessageAsync));
 			CheckAndThrowIfWebsocketNotOpen(_socket, nameof(SendMessageAsync));
 
-			CancellationTokenSource joinedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disconnectingCancellationSource.Token);
-
 			try
 			{
-				await DoSendAsync(message, joinedSource.Token);
+				return await DoSendAsync(message, cancellationToken);
 			}
 			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 			{
@@ -325,17 +302,15 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// If the token does not match the passed in one, that means that any of the internal cancellation souces have been cancelled. This 
 		/// can happen for many reasons from consuming API calling CloseAsync to the remote connection sending a request close message.
 		/// </exception>
-		/// <returns>A task which will be populated with an incoming message once one is received from the websocket.</returns>
+		/// <returns>A task which will be populated with an incoming message once one is received from the websocket. If for some reason the receive failed, null will be returned.</returns>
 		public async Task<IncomingMessageBase> ReceiveMessageAsync(CancellationToken cancellationToken)
 		{
 			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.Connected, nameof(SendMessageAsync));
 			CheckAndThrowIfWebsocketNotOpen(_socket, nameof(SendMessageAsync));
 
-			CancellationTokenSource joinedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disconnectingCancellationSource.Token);
-
 			try
 			{
-				return await DoReceiveAsync(joinedSource.Token);
+				return await DoReceiveAsync(cancellationToken);
 			}
 			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
 			{
@@ -361,12 +336,8 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				//
 				// Create the send/receive channels, every time to clear out stale data.
 				//
-				_writeChannel = Channel.CreateBounded<MemoryStream>(1);
-				_readChannel = Channel.CreateBounded<MemoryStream>(1);
-
-				_readChannelCancellationSource = new CancellationTokenSource();
-				_writeChannelCancellationSource = new CancellationTokenSource();
-				_disconnectingCancellationSource = new CancellationTokenSource();
+				_sendChannel = Channel.CreateBounded<MemoryStream>(1);
+				_receiveChannel = Channel.CreateBounded<MemoryStream>(1);
 
 				_sendTask = SendLoopAsync();
 				_receiveTask = ReceiveLoopAsync();
@@ -375,12 +346,24 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				{
 					IncomingMessageBase message = await DoReceiveAsync(cancellationToken);
 
+					if (message == null)
+					{
+						throw new Exception("Receive loop died, aborting connection.");
+					}
+
 					ThrowIfWrongMessageType(AuthRequiredMessage.MessageType, message.TypeId);
 
 					AuthMessage authMessage = new AuthMessage() { AccessToken = AccessToken };
-					await DoSendAsync(authMessage, cancellationToken);
+					if (!await DoSendAsync(authMessage, cancellationToken))
+					{
+						throw new Exception("Send loop died, aborting connection.");
+					}
 
 					message = await DoReceiveAsync(cancellationToken);
+					if (message == null)
+					{
+						throw new Exception("Receive loop died, aborting connection.");
+					}
 
 					ThrowIfWrongMessageType(AuthRequiredMessage.MessageType, message.TypeId);
 
@@ -398,8 +381,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				{
 					State = SharpHomeAssistantConnectionState.Closing;
 
-					_writeChannelCancellationSource.Cancel();
-					_readChannelCancellationSource.Cancel();
 					await _sendTask;
 					await _receiveTask;
 
@@ -465,35 +446,38 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 			CancellationTokenSource joinedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
 				cancellationToken,
-				_forceShutdown.Token,
-				_readChannelCancellationSource.Token);
+				_forceShutdown.Token);
 
-			joinedTokenSource.Token.ThrowIfCancellationRequested();
-
-			using (MemoryStream stream = await _readChannel.Reader.ReadAsync(joinedTokenSource.Token))
+			while (await _receiveChannel.Reader.WaitToReadAsync(joinedTokenSource.Token))
 			{
-				try
+				MemoryStream stream;
+				if (_receiveChannel.Reader.TryRead(out stream))
 				{
-					//
-					//Don't pass in a token to the json serializer. At this point we have the message from the channel so if we abort we could loose it!.
-					//
-					IncomingMessageBase message = await JsonSerializer.DeserializeAsync<IncomingMessageBase>(stream, _jsonSerializerOptions);
-					return message;
-				}
-				catch (Exception ex) when (ex is JsonException || ex is NotSupportedException)
-				{
-					throw new SharpHomeAssistantProtocolException("Could not deserialize received message.", ex);
+					try
+					{
+						//
+						//Don't pass in a token to the json serializer. At this point we have the message from the channel so if we abort we could loose it!.
+						//
+						IncomingMessageBase message = await JsonSerializer.DeserializeAsync<IncomingMessageBase>(stream, _jsonSerializerOptions);
+						return message;
+					}
+					catch (Exception ex) when (ex is JsonException || ex is NotSupportedException)
+					{
+						throw new SharpHomeAssistantProtocolException("Could not deserialize received message.", ex);
+					}
+
 				}
 			}
+
+			return null;
 		}
 
-		private async Task DoSendAsync<T>(T message, CancellationToken cancellationToken) where T : OutgoingMessageBase
+		private async Task<bool> DoSendAsync<T>(T message, CancellationToken cancellationToken) where T : OutgoingMessageBase
 		{
 			CheckAndThrowIfWebsocketNotOpen(_socket, nameof(DoReceiveAsync));
 			CancellationTokenSource joinedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
 				cancellationToken,
-				_forceShutdown.Token,
-				_writeChannelCancellationSource.Token);
+				_forceShutdown.Token);
 
 			joinedTokenSource.Token.ThrowIfCancellationRequested();
 
@@ -509,16 +493,23 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				throw new SharpHomeAssistantProtocolException("Could not handle serialize message to send.", ex);
 			}
 
-			await _writeChannel.Writer.WriteAsync(stream, joinedTokenSource.Token);
+			while (await _sendChannel.Writer.WaitToWriteAsync(joinedTokenSource.Token))
+			{
+				if (_sendChannel.Writer.TryWrite(stream))
+				{
+					return true;
+				}
+			}
+
+			return false;
 		}
 
-		private async Task<KeyValuePair<WebSocketCloseStatus, string>> ReceiveLoopAsync()
+		private async Task ReceiveLoopAsync()
 		{
 			WebSocketReceiveResult result;
-			CancellationTokenSource joinedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(_forceShutdown.Token, _readChannelCancellationSource.Token);
 			try
 			{
-				do
+				while (_socket.State == WebSocketState.Open || _socket.State == WebSocketState.CloseSent)
 				{
 					MemoryStream currentStream = new MemoryStream();
 
@@ -529,51 +520,55 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 						switch (result.MessageType)
 						{
+							// Ignore binary messages
 							case WebSocketMessageType.Binary:
-								return new KeyValuePair<WebSocketCloseStatus, string>(WebSocketCloseStatus.InvalidMessageType, "Binary messages are not supported.");
+								continue;
 							case WebSocketMessageType.Close:
-								return new KeyValuePair<WebSocketCloseStatus, string>(WebSocketCloseStatus.NormalClosure, "Close message received, closing connection.");
+								break;
 						}
 
 						await currentStream.WriteAsync(buffer, 0, result.Count);
 
 						if (MaxMessageSize > 0 && currentStream.Length > MaxMessageSize)
 						{
-							return new KeyValuePair<WebSocketCloseStatus, string>(WebSocketCloseStatus.MessageTooBig, "Message sent exceeded max message size.");
+							throw new Exception("Received message is too big.");
 						}
 
 					} while (!result.EndOfMessage);
 
 					currentStream.Seek(0, System.IO.SeekOrigin.Begin);
-					await _readChannel.Writer.WriteAsync(currentStream, joinedTokenSource.Token);
 
-				} while (_socket.State == WebSocketState.Open || _socket.State == WebSocketState.CloseSent);
+					while (await _receiveChannel.Writer.WaitToWriteAsync(_forceShutdown.Token))
+					{
+						if (_receiveChannel.Writer.TryWrite(currentStream))
+						{
+							break;
+						}
+					}
+				}
 
-				throw new Exception("WebSocket is in an invalid transition state. The close message was not received by the receive method. This likely means something went wrong with the WebSocket.");
+				_receiveChannel.Writer.TryComplete();
 			}
-			catch (OperationCanceledException) when (_readChannelCancellationSource.IsCancellationRequested)
+			catch (Exception ex)
 			{
-				return new KeyValuePair<WebSocketCloseStatus, string>(WebSocketCloseStatus.NormalClosure, "Connection is being closed.");
+				_receiveChannel.Writer.TryComplete(ex);
+				throw;
 			}
-			finally
-			{
-				State = SharpHomeAssistantConnectionState.Closing;
-				_readChannelCancellationSource.Cancel();
-			}
+
 		}
 
 		private async Task SendLoopAsync()
 		{
-			CancellationTokenSource joinedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(_forceShutdown.Token, _writeChannelCancellationSource.Token);
 			try
 			{
-				do
+				while ((_socket.State == WebSocketState.Open || _socket.State == WebSocketState.CloseReceived) && await _sendChannel.Reader.WaitToReadAsync(_forceShutdown.Token))
 				{
-					//
-					// Only use the joined source when waiting on the _writeChannel. 
-					// For all other stuff just let it finish and then exit.
-					//
-					MemoryStream stream = await _writeChannel.Reader.ReadAsync(joinedTokenSource.Token);
+					MemoryStream stream;
+					if (!_sendChannel.Reader.TryRead(out stream))
+					{
+						continue;
+					}
+
 					byte[] buffer = new byte[128];
 					do
 					{
@@ -587,21 +582,17 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 						{
 							await _socket.SendAsync(new ArraySegment<byte>(buffer, 0, 128), WebSocketMessageType.Text, false, _forceShutdown.Token);
 						}
-
 					} while (true);
 
 					await stream.DisposeAsync();
+				}
 
-				} while (_socket.State == WebSocketState.Open);
+				_sendChannel.Writer.TryComplete();
 			}
-			catch (OperationCanceledException) when (_writeChannelCancellationSource.IsCancellationRequested)
+			catch (Exception ex)
 			{
-				//  Do nothing for this case
-			}
-			finally
-			{
-				State = SharpHomeAssistantConnectionState.Closing;
-				_writeChannelCancellationSource.Cancel();
+				_sendChannel.Writer.TryComplete(ex);
+				throw;
 			}
 		}
 	}
