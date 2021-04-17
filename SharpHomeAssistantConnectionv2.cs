@@ -353,7 +353,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 					if (message == null)
 					{
-						throw new Exception("Receive loop died, aborting connection.");
+						throw new Exception("Receive loop died, aborting connection.", _receiveChannel.Reader.Completion.Exception);
 					}
 
 					ThrowIfWrongMessageType(AuthRequiredMessage.MessageType, message.TypeId);
@@ -361,13 +361,13 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 					AuthMessage authMessage = new AuthMessage() { AccessToken = AccessToken };
 					if (!await DoSendAsync(authMessage, cancellationToken))
 					{
-						throw new Exception("Send loop died, aborting connection.");
+						throw new Exception("Send loop died, aborting connection.", _sendChannel.Reader.Completion.Exception);
 					}
 
 					message = await DoReceiveAsync(cancellationToken);
 					if (message == null)
 					{
-						throw new Exception("Receive loop died, aborting connection.");
+						throw new Exception("Receive loop died, aborting connection.", _receiveChannel.Reader.Completion.Exception);
 					}
 
 					ThrowIfWrongMessageType(AuthRequiredMessage.MessageType, message.TypeId);
