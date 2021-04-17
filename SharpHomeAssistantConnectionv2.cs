@@ -180,64 +180,72 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// <returns>Task representing the asyncronous operation.</returns>
 		public async Task CloseAsync(CancellationToken cancellationToken)
 		{
-
-			if (_socket == null || (_socket.State != WebSocketState.Open && _socket.State != WebSocketState.CloseReceived && _socket.State != WebSocketState.CloseSent))
-			{
-				Abort();
-				return;
-			}
-
 			if (State != SharpHomeAssistantConnectionState.Closing && State != SharpHomeAssistantConnectionState.Connected)
 			{
 				throw new InvalidOperationException(String.Format("{0} expects the connection to either be Open or Closing. The state of the connection was {1}.", nameof(CloseAsync), State));
 			}
 
-			CancellationTokenSource cancelAndAbort = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _forceShutdown.Token);
-
 			try
 			{
-				State = SharpHomeAssistantConnectionState.Closing;
-
-
-				//
-				// Drain all pending messages to send.
-				//
-				_sendChannel.Writer.TryComplete();
-				await _sendTask;
-
-				//
-				// No more messages to send so now we close the output.
-				//
-				await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing connection", cancelAndAbort.Token);
-
-				//
-				// Wait for and join the receive task.
-				//
-				await _receiveTask;
-
-
-				//
-				// Transition to the closed state, if we are not there already.
-				//
-				if (_socket.State == WebSocketState.CloseReceived || _socket.State == WebSocketState.CloseSent)
-				{
-					await _socket.CloseAsync(_socket.CloseStatus ?? WebSocketCloseStatus.NormalClosure, _socket.CloseStatusDescription ?? "Closing Connection", cancelAndAbort.Token);
-				}
-				else if (_socket.State != WebSocketState.Closed)
-				{
-					throw new Exception(String.Format("The websocket should have closed, but instead it has a state of {0}", _socket.State));
-				}
-
-				State = SharpHomeAssistantConnectionState.NotConnected;
-
-				_socket.Dispose();
-				_socket = null;
+				await DoCloseAsync(cancellationToken);
 			}
 			catch
 			{
 				Abort();
 				throw;
 			}
+		}
+
+		private async Task DoCloseAsync(CancellationToken cancellationToken)
+		{
+			if (_socket == null || (_socket.State != WebSocketState.Open && _socket.State != WebSocketState.CloseReceived && _socket.State != WebSocketState.CloseSent))
+			{
+				if (_socket != null)
+				{
+					throw new InvalidOperationException(String.Format("The websocket is in an invalid state. Expected a state of open, close received or close sent. Instead the socket was in {0}", _socket.State));
+				}
+
+				throw new InvalidOperationException("_socket is null. This is not permitted.");
+			}
+
+
+			CancellationTokenSource cancelAndAbort = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _forceShutdown.Token);
+
+			State = SharpHomeAssistantConnectionState.Closing;
+
+			//
+			// Drain all pending messages to send.
+			//
+			_sendChannel.Writer.TryComplete();
+			await _sendTask;
+
+			//
+			// No more messages to send so now we close the output.
+			//
+			await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing connection", cancelAndAbort.Token);
+
+			//
+			// Wait for and join the receive task.
+			//
+			await _receiveTask;
+
+
+			//
+			// Transition to the closed state, if we are not there already.
+			//
+			if (_socket.State == WebSocketState.CloseReceived || _socket.State == WebSocketState.CloseSent)
+			{
+				await _socket.CloseAsync(_socket.CloseStatus ?? WebSocketCloseStatus.NormalClosure, _socket.CloseStatusDescription ?? "Closing Connection", cancelAndAbort.Token);
+			}
+			else if (_socket.State != WebSocketState.Closed)
+			{
+				throw new Exception(String.Format("The websocket should have closed, but instead it has a state of {0}", _socket.State));
+			}
+
+			State = SharpHomeAssistantConnectionState.NotConnected;
+
+			_socket.Dispose();
+			_socket = null;
 		}
 
 		/// <summary>
@@ -248,12 +256,9 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 			_forceShutdown?.Cancel();
 
-			if (_socket != null)
-			{
-				_socket.Abort();
-				_socket.Dispose();
-				_socket = null;
-			}
+			_socket?.Abort();
+			_socket?.Dispose();
+			_socket = null;
 
 			State = SharpHomeAssistantConnectionState.Aborted;
 		}
@@ -334,7 +339,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				_socket = socket;
 
 				//
-				// Create the send/receive channels, every time to clear out stale data.
+				// Create the send/receive channels every time to clear out stale data.
 				//
 				_sendChannel = Channel.CreateBounded<MemoryStream>(1);
 				_receiveChannel = Channel.CreateBounded<MemoryStream>(1);
@@ -379,18 +384,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 					|| ex is SharpHomeAssistantProtocolException
 					)
 				{
-					State = SharpHomeAssistantConnectionState.Closing;
-
-					await _sendTask;
-					await _receiveTask;
-
-					await _socket.CloseAsync(WebSocketCloseStatus.InternalServerError, ex.Message, cancellationToken);
-					if (_socket.State != WebSocketState.Closed)
-					{
-						throw new Exception(String.Format("Expected WebSocket to be closed after returning from CloseAsync. The WebSocket had as state of {0}", _socket.State));
-					}
-
-					State = SharpHomeAssistantConnectionState.NotConnected;
+					await DoCloseAsync(cancellationToken);
 					throw;
 				}
 
@@ -401,14 +395,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 					&& !(ex is SharpHomeAssistantProtocolException))
 			{
 
-				if (_socket != null)
-				{
-					_socket.Abort();
-				}
-
-				State = SharpHomeAssistantConnectionState.Aborted;
-				_forceShutdown.Cancel();
-
+				Abort();
 				throw;
 			}
 		}
