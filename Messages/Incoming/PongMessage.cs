@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	internal class PongMessage : IncomingMessageBase
+	public class PongMessage : IncomingMessageBase
 	{
 		public const string MessageType = "pong";
 
@@ -11,6 +11,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 
 		[JsonPropertyName("id")]
 		public int CommandId { get; set; }
-
 	}
+
+
 }

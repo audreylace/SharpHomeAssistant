@@ -5,6 +5,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
 	public class ResultMessage : IncomingMessageBase
 	{
+
 		public const string MessageType = "result";
 
 		[JsonPropertyName("type")]

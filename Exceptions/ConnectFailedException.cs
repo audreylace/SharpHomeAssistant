@@ -9,5 +9,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Exceptions
 		public ConnectFailedException() : base(ExceptionMessage) { }
 		public ConnectFailedException(string message) : base(message) { }
 		public ConnectFailedException(string message, Exception innerException) : base(message, innerException) { }
+		public ConnectFailedException(Exception ex) : base(ex.Message, ex) { }
 	}
 }

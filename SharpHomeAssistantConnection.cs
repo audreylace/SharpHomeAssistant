@@ -42,7 +42,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// <see cref="SendMessageAsync" />
 		/// <see cref="WaitAndThenQueueMessageToSendAsync" />
 		/// <see cref="SendMessagesAndPlaceOnQueueAsync" />		
-		private Channel<MemoryStream> _sendChannel;
+		private Channel<byte[]> _sendChannel;
 
 
 		/// <summary>
@@ -152,10 +152,9 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// <param name="serverUri">URI of the server to connect to.</param>
 		/// <param name="cancellationToken"></param>
 		/// <exception cref="InvalidOperationException">Throws an invalid operation excepption if this class is not in the NotConnected state.</exception>
-		/// <exception cref="ConnectFailedException">Thrown when the remote server rejects the authentication message.</exception>
+		/// <exception cref="ConnectFailedException">Thrown when the remote server rejects the authentication message or a websocket failure is encountered during the connect attempt.</exception>
 		/// <exception cref="SharpHomeAssistantProtocolException">Thrown if some sort of internal error occurs during the authentication handshake.</exception>
 		/// <exception cref="OperationCanceledException">If the source of the cancellation token is cancelled.</exception>
-		/// <exception cref="WebSocketException">Thrown by the internal ClientWebSocket if the connect operation fails.</exception>
 		/// <see cref="SharpHomeAssistantConnectionState" />
 		/// <returns>The task representing the async operation.</returns>
 		public async Task ConnectAsync(Uri serverUri, CancellationToken cancellationToken)
@@ -168,6 +167,11 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			try
 			{
 				await newSocket.ConnectAsync(serverUri, cancellationToken);
+			}
+			catch (WebSocketException ex)
+			{
+				State = SharpHomeAssistantConnectionState.NotConnected;
+				throw new ConnectFailedException(ex);
 			}
 			catch (Exception)
 			{
@@ -363,7 +367,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				//
 				// Create the send/receive channels every time to clear out stale data.
 				//
-				_sendChannel = Channel.CreateBounded<MemoryStream>(1);
+				_sendChannel = Channel.CreateBounded<byte[]>(1);
 				_receiveChannel = Channel.CreateBounded<MemoryStream>(1);
 
 				_sendTask = SendMessagesAndPlaceOnQueueAsync();
@@ -392,7 +396,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 						throw new Exception("Receive loop died, aborting connection.", _receiveChannel.Reader.Completion.Exception);
 					}
 
-					ThrowIfWrongMessageType(AuthRequiredMessage.MessageType, message.TypeId);
+					ThrowIfWrongMessageType(AuthResultMessage.MessageType, message.TypeId);
 
 					AuthResultMessage resultMessage = (AuthResultMessage)message;
 
@@ -491,11 +495,15 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			joinedTokenSource.Token.ThrowIfCancellationRequested();
 
 
-			MemoryStream stream = new MemoryStream();
+			byte[] messageToSend;
 
 			try
 			{
-				await JsonSerializer.SerializeAsync(stream, message, typeof(T), _jsonSerializerOptions, joinedTokenSource.Token);
+				messageToSend = JsonSerializer.SerializeToUtf8Bytes(message, typeof(T), _jsonSerializerOptions);
+				if (messageToSend.Length < 2)
+				{
+					throw new SharpHomeAssistantProtocolException("Serialized message is invalid.");
+				}
 			}
 			catch (Exception ex) when (ex is JsonException || ex is NotSupportedException)
 			{
@@ -504,7 +512,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 			while (await _sendChannel.Writer.WaitToWriteAsync(joinedTokenSource.Token))
 			{
-				if (_sendChannel.Writer.TryWrite(stream))
+				if (_sendChannel.Writer.TryWrite(messageToSend))
 				{
 					return true;
 				}
@@ -527,13 +535,14 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 					{
 						result = await _socket.ReceiveAsync(buffer, _forceShutdown.Token);
 
-						switch (result.MessageType)
+						if (result.MessageType == WebSocketMessageType.Binary)
 						{
-							// Ignore binary messages
-							case WebSocketMessageType.Binary:
-								continue;
-							case WebSocketMessageType.Close:
-								break;
+							continue;
+						}
+
+						if (result.MessageType == WebSocketMessageType.Close)
+						{
+							break;
 						}
 
 						await currentStream.WriteAsync(buffer, 0, result.Count);
@@ -545,14 +554,21 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 					} while (!result.EndOfMessage);
 
-					currentStream.Seek(0, System.IO.SeekOrigin.Begin);
-
-					while (await _receiveChannel.Writer.WaitToWriteAsync(_forceShutdown.Token))
+					if (result.MessageType == WebSocketMessageType.Text)
 					{
-						if (_receiveChannel.Writer.TryWrite(currentStream))
+						currentStream.Seek(0, System.IO.SeekOrigin.Begin);
+
+						while (await _receiveChannel.Writer.WaitToWriteAsync(_forceShutdown.Token))
 						{
-							break;
+							if (_receiveChannel.Writer.TryWrite(currentStream))
+							{
+								break;
+							}
 						}
+					}
+					else if (result.MessageType == WebSocketMessageType.Close)
+					{
+						break;
 					}
 				}
 
@@ -572,28 +588,15 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			{
 				while ((_socket.State == WebSocketState.Open || _socket.State == WebSocketState.CloseReceived) && await _sendChannel.Reader.WaitToReadAsync(_forceShutdown.Token))
 				{
-					MemoryStream stream;
-					if (!_sendChannel.Reader.TryRead(out stream))
+					byte[] message;
+					if (!_sendChannel.Reader.TryRead(out message))
 					{
 						continue;
 					}
 
-					byte[] buffer = new byte[128];
-					do
-					{
-						int count = await stream.ReadAsync(buffer, 0, 128, _forceShutdown.Token);
-						if (count < 128)
-						{
-							await _socket.SendAsync(new ArraySegment<byte>(buffer, 0, count), WebSocketMessageType.Text, true, _forceShutdown.Token);
-							break;
-						}
-						else
-						{
-							await _socket.SendAsync(new ArraySegment<byte>(buffer, 0, 128), WebSocketMessageType.Text, false, _forceShutdown.Token);
-						}
-					} while (true);
 
-					await stream.DisposeAsync();
+					await _socket.SendAsync(message, WebSocketMessageType.Text, true, _forceShutdown.Token);
+
 				}
 
 				_sendChannel.Writer.TryComplete();
