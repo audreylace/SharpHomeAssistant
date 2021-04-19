@@ -23,7 +23,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 		/// <summary> The websocket that is used to connect to the Home Assistant instance.</summary>
 		/// <remarks>This will be null until the connection has been established.</remarks>
-		private ClientWebSocket _socket;
+		private WebSocket _socket;
 
 		/// <summary>
 		/// Channel used to pass messages read from the websocket connection to receivers with backpressure.
@@ -140,7 +140,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// <remarks>Cancelling this operation can put this class in the aborted state. Check before trying to use this class again if a connect operation is cancelled.</remarks>
 		/// <see cref="SharpHomeAssistantConnectionState" />
 		/// <returns>The task representing the async operation.</returns>
-		public async Task ConnectUsingSocketAsync(ClientWebSocket socket, CancellationToken cancellationToken)
+		public async Task ConnectUsingSocketAsync(WebSocket socket, CancellationToken cancellationToken)
 		{
 			CheckAndThrowIfNotInState(SharpHomeAssistantConnectionState.NotConnected, nameof(ConnectUsingSocketAsync));
 			await PerformConnectionHandshakeAsync(socket, cancellationToken);
@@ -353,7 +353,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			_socket = null;
 		}
 
-		private async Task PerformConnectionHandshakeAsync(ClientWebSocket socket, CancellationToken cancellationToken)
+		private async Task PerformConnectionHandshakeAsync(WebSocket socket, CancellationToken cancellationToken)
 		{
 
 			CheckAndThrowIfWebsocketNotOpen(socket, nameof(ConnectUsingSocketAsync));
@@ -435,12 +435,12 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 		}
 
-		private void CheckAndThrowIfWebsocketNotOpen(ClientWebSocket socket, string methodName)
+		private void CheckAndThrowIfWebsocketNotOpen(WebSocket socket, string methodName)
 		{
 			if (socket.State != WebSocketState.Open)
 			{
 				throw new InvalidOperationException(
-						String.Format("The supplied ClientWebSocket must have a state of open. The supplied ClientWebSocket had a state of {0} in method {1}.", socket.State, methodName)
+						String.Format("The supplied WebSocket must have a state of open. The supplied WebSocket had a state of {0} in method {1}.", socket.State, methodName)
 						);
 			}
 		}
