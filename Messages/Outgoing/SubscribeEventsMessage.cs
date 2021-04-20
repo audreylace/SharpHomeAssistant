@@ -12,7 +12,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 
 		[JsonPropertyName("event_type")]
 		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-		public string EventType { get; set; }
+		public string EventName { get; set; }
 
 		public override string GetTypeId()
 		{
