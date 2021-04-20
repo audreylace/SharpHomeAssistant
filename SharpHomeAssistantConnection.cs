@@ -329,6 +329,13 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			//
 			await _socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Closing connection", cancelAndAbort.Token);
 
+
+			// 
+			// Complete the receive channel to avoid the receive operations hitting a deadlock 
+			// waiting for something to read the messages.
+			//
+			_receiveChannel.Writer.TryComplete();
+
 			//
 			// Wait for and join the receive task.
 			//
