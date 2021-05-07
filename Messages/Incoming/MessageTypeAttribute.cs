@@ -1,7 +1,7 @@
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
 
-	public class MessageTypeAttribute : System.Attribute
+	internal class MessageTypeAttribute : System.Attribute
 	{
 		public MessageTypeAttribute(string messageType)
 		{

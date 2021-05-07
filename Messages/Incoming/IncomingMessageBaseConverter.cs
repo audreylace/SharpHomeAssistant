@@ -3,7 +3,7 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public abstract class IncomingMessageBaseConverter<Type> : IAlgebraicTypeConverter<IncomingMessageBase, string> where Type : IncomingMessageBase
+	internal abstract class IncomingMessageBaseConverter<Type> : IAlgebraicTypeConverter<IncomingMessageBase, string> where Type : IncomingMessageBase
 	{
 		public virtual bool CanConvert(string typeId)
 		{

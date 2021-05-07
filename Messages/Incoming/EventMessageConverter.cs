@@ -3,7 +3,7 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public class EventMessageConverter : IncomingMessageBaseConverter<EventMessage>
+	internal class EventMessageConverter : IncomingMessageBaseConverter<EventMessage>
 	{
 		public override IncomingMessageBase Read(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
 		{
