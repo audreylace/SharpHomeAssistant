@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 #nullable enable
 namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 {
-	public abstract class AlgebraicTypeConverter<TypeToConvert, DiscriminatorType> : JsonConverter<TypeToConvert>
+	internal abstract class AlgebraicTypeConverter<TypeToConvert, DiscriminatorType> : JsonConverter<TypeToConvert>
 	{
 
 		protected List<IAlgebraicTypeConverter<TypeToConvert, DiscriminatorType>> Converters { get; set; }
