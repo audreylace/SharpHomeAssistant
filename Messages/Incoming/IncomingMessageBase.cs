@@ -8,6 +8,16 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	{
 		public const string PropertyTypeJsonName = "type";
 
+		/// <summary>
+		/// Returns the string value of message type.
+		/// 
+		/// Application code should use TryConvert instead of this method. This method's main purpose
+		/// is to support json conversions and other internal operations.
+		/// </summary>
+		/// <param name="messageType">The C# type to extract the message string from.</param>
+		/// <see cref="TryConvert" />
+		/// <see cref="MessageTypeConverter" />
+		/// <returns>String value of the message type as specified in IncomingMessageTypeAttribute.</returns>
 		public static string GetMessageTypeString(Type messageType)
 		{
 			Attribute[] attributes = Attribute.GetCustomAttributes(messageType);
@@ -24,12 +34,19 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			throw new InvalidOperationException(String.Format("Passed in type {0} did not have a MessageTypeAttribute", messageType));
 		}
 
-		public static bool TryConvert<TOutType>(IncomingMessageBase messageBase, out TOutType outMessage) where TOutType : IncomingMessageBase
+		/// <summary>
+		/// Attempts to convert a IncomingBaseMessage into the desired message type.
+		/// </summary>
+		/// <typeparam name="TOutType">The type to convert the message base into.</typeparam>
+		/// <param name="messageToConvert">The message to convert</param>
+		/// <param name="convertedMessage">The converted message. This will be null if the conversion fails.</param>
+		/// <returns>True if the message conversion was a success.</returns>
+		public static bool TryConvert<TOutType>(IncomingMessageBase messageToConvert, out TOutType convertedMessage) where TOutType : IncomingMessageBase
 		{
-			outMessage = null;
+			convertedMessage = null;
 
-			outMessage = messageBase as TOutType;
-			if (outMessage != null)
+			convertedMessage = messageToConvert as TOutType;
+			if (convertedMessage != null)
 			{
 				return true;
 			}

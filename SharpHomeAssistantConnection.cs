@@ -73,7 +73,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// </summary>
 		/// <remarks> Messages are sent over this channel via the DoReceiveAync method. </remarks>
 		/// <see cref="ReceiveMessagesAndPlaceOnQueueAsync" />
-		/// <see creg="_readChannel" />
+		/// <see cref="_readChannel" />
 		/// <see cref="WaitAndThenReceiveMessageAsync" />
 		private Task _receiveTask;
 
@@ -389,7 +389,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 						throw new Exception("Receive loop died, aborting connection.", _receiveChannel.Reader.Completion.Exception);
 					}
 
-					ThrowIfWrongMessageType(typeof(AuthRequiredMessage), message);
+					ThrowIfWrongMessageTypeOrConvert<AuthRequiredMessage>(message);
 
 					AuthMessage authMessage = new AuthMessage() { AccessToken = AccessToken };
 					if (!await WaitAndThenQueueMessageToSendAsync(authMessage, cancellationToken))
@@ -403,9 +403,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 						throw new Exception("Receive loop died, aborting connection.", _receiveChannel.Reader.Completion.Exception);
 					}
 
-					ThrowIfWrongMessageType(typeof(AuthResultMessage), message);
-
-					AuthResultMessage resultMessage = (AuthResultMessage)message;
+					AuthResultMessage resultMessage = ThrowIfWrongMessageTypeOrConvert<AuthResultMessage>(message);
 
 					if (!resultMessage.Success)
 					{
@@ -433,14 +431,16 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			}
 		}
 
-		private void ThrowIfWrongMessageType(Type wantedMessageType, IncomingMessageBase incomingMessage)
+		private WantedMessageType ThrowIfWrongMessageTypeOrConvert<WantedMessageType>(IncomingMessageBase incomingMessage) where WantedMessageType : IncomingMessageBase
 		{
-			string wantedMessageTypeString = IncomingMessageBase.GetMessageTypeString(wantedMessageType);
-			if (wantedMessageTypeString != incomingMessage.MessageType)
+			WantedMessageType outMessage;
+			if (!IncomingMessageBase.TryConvert<WantedMessageType>(incomingMessage, out outMessage))
 			{
-				throw new SharpHomeAssistantProtocolException(String.Format("Expected message with type {0} but instead got {1}.", wantedMessageTypeString, incomingMessage.MessageType));
+				throw new SharpHomeAssistantProtocolException(String.Format("Expected message with type {0} but instead got {1}.",
+					IncomingMessageBase.GetMessageTypeString(typeof(WantedMessageType)), incomingMessage.MessageType));
 			}
 
+			return outMessage;
 		}
 
 		private void CheckAndThrowIfWebsocketNotOpen(WebSocket socket, string methodName)
