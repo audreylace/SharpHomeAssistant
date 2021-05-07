@@ -16,7 +16,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		/// </summary>
 		/// <param name="messageType">The C# type to extract the message string from.</param>
 		/// <see cref="TryConvert" />
-		/// <see cref="MessageTypeConverter" />
+		/// <see cref="MessageTypeAttribute" />
 		/// <returns>String value of the message type as specified in IncomingMessageTypeAttribute.</returns>
 		public static string GetMessageTypeString(Type messageType)
 		{

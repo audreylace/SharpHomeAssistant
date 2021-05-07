@@ -1,6 +1,5 @@
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
 using System.Text.Json;
@@ -73,7 +72,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// </summary>
 		/// <remarks> Messages are sent over this channel via the DoReceiveAync method. </remarks>
 		/// <see cref="ReceiveMessagesAndPlaceOnQueueAsync" />
-		/// <see cref="_readChannel" />
+		/// <see cref="_receiveChannel" />
 		/// <see cref="WaitAndThenReceiveMessageAsync" />
 		private Task _receiveTask;
 
