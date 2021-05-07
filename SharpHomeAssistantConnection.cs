@@ -389,7 +389,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 						throw new Exception("Receive loop died, aborting connection.", _receiveChannel.Reader.Completion.Exception);
 					}
 
-					ThrowIfWrongMessageType(AuthRequiredMessage.MessageType, message.TypeId);
+					ThrowIfWrongMessageType(typeof(AuthRequiredMessage), message);
 
 					AuthMessage authMessage = new AuthMessage() { AccessToken = AccessToken };
 					if (!await WaitAndThenQueueMessageToSendAsync(authMessage, cancellationToken))
@@ -403,7 +403,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 						throw new Exception("Receive loop died, aborting connection.", _receiveChannel.Reader.Completion.Exception);
 					}
 
-					ThrowIfWrongMessageType(AuthResultMessage.MessageType, message.TypeId);
+					ThrowIfWrongMessageType(typeof(AuthResultMessage), message);
 
 					AuthResultMessage resultMessage = (AuthResultMessage)message;
 
@@ -433,11 +433,12 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			}
 		}
 
-		private void ThrowIfWrongMessageType(string wantedType, string gotType)
+		private void ThrowIfWrongMessageType(Type wantedMessageType, IncomingMessageBase incomingMessage)
 		{
-			if (wantedType != gotType)
+			string wantedMessageTypeString = IncomingMessageBase.GetMessageTypeString(wantedMessageType);
+			if (wantedMessageTypeString != incomingMessage.MessageType)
 			{
-				throw new SharpHomeAssistantProtocolException(String.Format("Expected message with type {0} but instead got {1}.", wantedType, gotType));
+				throw new SharpHomeAssistantProtocolException(String.Format("Expected message with type {0} but instead got {1}.", wantedMessageTypeString, incomingMessage.MessageType));
 			}
 
 		}

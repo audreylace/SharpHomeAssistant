@@ -1,9 +1,9 @@
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
+	[MessageType("auth_required")]
 	internal class AuthRequiredMessage : IncomingMessageBase
 	{
-		public const string MessageType = "auth_required";
-		public override string TypeId => MessageType;
+
 	}
 
 }

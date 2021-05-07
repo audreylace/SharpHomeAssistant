@@ -6,38 +6,40 @@ using System.Text.Json.Serialization;
 #nullable enable
 namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 {
-	public abstract class AlgebraicTypeConverter<TypeIdType> : JsonConverter<IAlgebraicType<TypeIdType>>
+	public abstract class AlgebraicTypeConverter<TypeToConvert, DiscriminatorType> : JsonConverter<TypeToConvert>
 	{
+
+		protected List<IAlgebraicTypeConverter<TypeToConvert, DiscriminatorType>> Converters { get; set; }
+		protected abstract DiscriminatorType GetDiscriminatorTypeFromJson(ref Utf8JsonReader reader, JsonSerializerOptions options);
+		protected abstract DiscriminatorType GetDiscriminatorTypeFromValue(TypeToConvert value);
 
 		public AlgebraicTypeConverter()
 		{
-			Converters = new List<IAlgebraicTypeConverter<TypeIdType>>();
+			Converters = new List<IAlgebraicTypeConverter<TypeToConvert, DiscriminatorType>>();
 		}
-		protected List<IAlgebraicTypeConverter<TypeIdType>> Converters { get; set; }
 
-		protected abstract TypeIdType GetTypeId(ref Utf8JsonReader reader, JsonSerializerOptions options);
-		public override bool CanConvert(Type typeToConvert)
+		public override bool CanConvert(Type t)
 		{
-			return typeToConvert.IsAssignableTo(typeof(IAlgebraicType<TypeIdType>));
+			return t.IsAssignableTo(typeof(TypeToConvert));
 		}
 
-		protected virtual IAlgebraicType<TypeIdType>? OnReadConverterNotFound(ref Utf8JsonReader reader, TypeIdType typeToConvert, JsonSerializerOptions options)
+		protected virtual TypeToConvert? OnReadConverterNotFound(ref Utf8JsonReader reader, DiscriminatorType discriminatorType, JsonSerializerOptions options)
 		{
 			throw new JsonException();
 		}
 
-		protected virtual IAlgebraicType<TypeIdType>? OnWriteConverterNotFound(Utf8JsonWriter writer, IAlgebraicType<TypeIdType> value, JsonSerializerOptions options)
+		protected virtual TypeToConvert? OnWriteConverterNotFound(Utf8JsonWriter writer, TypeToConvert value, JsonSerializerOptions options)
 		{
 			throw new JsonException();
 		}
-		public override IAlgebraicType<TypeIdType>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+		public override TypeToConvert? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
 		{
 			Utf8JsonReader getTypeIdReader = reader;
 
 			JsonSerializerOptions optionClone = new JsonSerializerOptions(options);
 			optionClone.Converters.Remove(this);
 
-			TypeIdType elementType = GetTypeId(ref getTypeIdReader, optionClone);
+			DiscriminatorType elementType = GetDiscriminatorTypeFromJson(ref getTypeIdReader, optionClone);
 
 			int index = Converters.FindIndex((c) => c.CanConvert(elementType));
 
@@ -49,11 +51,11 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 			return OnReadConverterNotFound(ref reader, elementType, optionClone);
 
 		}
-		public override void Write(Utf8JsonWriter writer, IAlgebraicType<TypeIdType> value, JsonSerializerOptions options)
+		public override void Write(Utf8JsonWriter writer, TypeToConvert value, JsonSerializerOptions options)
 		{
 			JsonSerializerOptions optionClone = new JsonSerializerOptions(options);
 			optionClone.Converters.Remove(this);
-			int index = Converters.FindIndex((c) => c.CanConvert(value.TypeId));
+			int index = Converters.FindIndex((c) => c.CanConvert(GetDiscriminatorTypeFromValue(value)));
 
 			if (index == -1)
 			{

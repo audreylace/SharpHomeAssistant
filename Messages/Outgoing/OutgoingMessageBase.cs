@@ -3,12 +3,13 @@ using System.Text.Json.Serialization;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public abstract class OutgoingMessageBase : HomeAssistantMessage
+	public abstract class OutgoingMessageBase
 	{
-		public abstract string GetTypeId();
+
+		public abstract string GetMessageType();
 
 		[JsonPropertyName("type")]
-		public override string TypeId => GetTypeId();
+		public string MessageType { get => GetMessageType(); }
 	}
 
 

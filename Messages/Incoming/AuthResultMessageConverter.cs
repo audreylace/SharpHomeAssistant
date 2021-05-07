@@ -4,9 +4,9 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	internal class AuthResultMessageConverter : IAlgebraicTypeConverter<string>
+	internal class AuthResultMessageConverter : IncomingMessageBaseConverter<AuthRequiredMessage>
 	{
-		public bool CanConvert(string typeId)
+		public override bool CanConvert(string typeId)
 		{
 			switch (typeId)
 			{
@@ -18,7 +18,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			}
 		}
 
-		public IAlgebraicType<string> Read(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
+		public override IncomingMessageBase Read(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
 		{
 			using (JsonDocument document = JsonDocument.ParseValue(ref reader))
 			{
@@ -39,30 +39,25 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			}
 		}
 
-		public void Write(Utf8JsonWriter writer, IAlgebraicType<string> value, JsonSerializerOptions options)
+		public override void Write(Utf8JsonWriter writer, IncomingMessageBase value, JsonSerializerOptions options)
 		{
 			AuthResultMessage message = (AuthResultMessage)value;
 
-			switch (message.TypeId)
+			if (message.Success)
 			{
-				case AuthResultMessage.AuthOkType:
-					writer.WriteStartObject();
-					writer.WriteString("type", AuthResultMessage.AuthOkType);
-					writer.WriteEndObject();
-					break;
-				case AuthResultMessage.AuthInvalidType:
-					writer.WriteStartObject();
-					writer.WriteString(IncomingMessageBase.PropertyTypeJsonName, AuthResultMessage.AuthInvalidType);
-					writer.WriteString("mesage", message.Message);
-					writer.WriteEndObject();
-					break;
-				default:
-					throw new NotImplementedException();
-
+				writer.WriteStartObject();
+				writer.WriteString(IncomingMessageBase.PropertyTypeJsonName, AuthResultMessage.AuthOkType);
+				writer.WriteEndObject();
 			}
+			else
+			{
+
+				writer.WriteStartObject();
+				writer.WriteString(IncomingMessageBase.PropertyTypeJsonName, AuthResultMessage.AuthInvalidType);
+				writer.WriteString("mesage", message.Message);
+				writer.WriteEndObject();
+			}
+
 		}
 	}
-
-
-
 }

@@ -4,7 +4,7 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	public class IncomingMessageConverter : AlgebraicTypeConverter<string>
+	public class IncomingMessageConverter : AlgebraicTypeConverter<IncomingMessageBase, string>
 	{
 		public override bool CanConvert(Type typeToConvert)
 		{
@@ -18,7 +18,20 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			Converters.Add(new ResultMessageConverter());
 			Converters.Add(new EventMessageConverter());
 		}
-		protected override string GetTypeId(ref Utf8JsonReader reader, JsonSerializerOptions options)
+		protected override IncomingMessageBase OnReadConverterNotFound(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
+		{
+			using (JsonDocument document = JsonDocument.ParseValue(ref reader))
+			{
+				UnknownMessage unknownMessage = new UnknownMessage();
+
+				unknownMessage.Message = document.RootElement.Clone();
+				unknownMessage.UnknownMessageType = typeToConvert;
+
+				return unknownMessage;
+			}
+		}
+
+		protected override string GetDiscriminatorTypeFromJson(ref Utf8JsonReader reader, JsonSerializerOptions options)
 		{
 			using (JsonDocument document = JsonDocument.ParseValue(ref reader))
 			{
@@ -35,17 +48,9 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			}
 		}
 
-		protected override IAlgebraicType<string> OnReadConverterNotFound(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
+		protected override string GetDiscriminatorTypeFromValue(IncomingMessageBase message)
 		{
-			using (JsonDocument document = JsonDocument.ParseValue(ref reader))
-			{
-				UnknownMessage unknownMessage = new UnknownMessage();
-
-				unknownMessage.Message = document.RootElement.Clone();
-				unknownMessage.UnknownMessageType = typeToConvert;
-
-				return unknownMessage;
-			}
+			return IncomingMessageBase.GetMessageTypeString(message.GetType());
 		}
 	}
 }

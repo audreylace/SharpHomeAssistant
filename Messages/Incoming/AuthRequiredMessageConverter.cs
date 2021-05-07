@@ -3,14 +3,10 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	internal class AuthRequiredMessageConverter : IAlgebraicTypeConverter<string>
+	internal class AuthRequiredMessageConverter : IncomingMessageBaseConverter<AuthRequiredMessage>
 	{
-		public bool CanConvert(string typeId)
-		{
-			return typeId == AuthRequiredMessage.MessageType;
-		}
 
-		public IAlgebraicType<string> Read(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
+		public override IncomingMessageBase Read(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
 		{
 			using (JsonDocument document = JsonDocument.ParseValue(ref reader)) //Parse the value to advance the reader
 			{ }
@@ -18,10 +14,10 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			return new AuthRequiredMessage();
 		}
 
-		public void Write(Utf8JsonWriter writer, IAlgebraicType<string> value, JsonSerializerOptions options)
+		public override void Write(Utf8JsonWriter writer, IncomingMessageBase value, JsonSerializerOptions options)
 		{
 			writer.WriteStartObject();
-			writer.WriteString(IncomingMessageBase.PropertyTypeJsonName, AuthRequiredMessage.MessageType);
+			WriteTypeAttribute(writer);
 			writer.WriteEndObject();
 		}
 	}

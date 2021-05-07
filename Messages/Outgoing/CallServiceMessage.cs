@@ -4,7 +4,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
 	public class CallServiceMessage<ServiceDataType> : CommandMessageBase
 	{
-		public const string MessageType = "call_service";
+		public override string GetMessageType() => "call_service";
 
 		[JsonPropertyName("domain")]
 		public string Domain { get; set; }
@@ -18,10 +18,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 
 		public ServiceDataType ServiceData { get; set; }
 
-		public override string GetTypeId()
-		{
-			return MessageType;
-		}
 	}
 
 }
