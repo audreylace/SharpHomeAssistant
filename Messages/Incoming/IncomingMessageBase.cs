@@ -4,8 +4,14 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
+	/// <summary>
+	/// Base class of all incoming messages.
+	/// </summary>
 	public abstract class IncomingMessageBase
 	{
+		/// <summary>
+		/// Name of the JSON type field used to identify the type of message this is.
+		/// </summary>
 		public const string PropertyTypeJsonName = "type";
 
 		/// <summary>
@@ -54,7 +60,9 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			return false;
 		}
 
-
+		/// <summary>
+		/// String identifying the type of this message.
+		/// </summary>
 		[JsonPropertyName(IncomingMessageBase.PropertyTypeJsonName)]
 		public string MessageType
 		{
