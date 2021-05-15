@@ -10,8 +10,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	{
 
 		/// <summary>
-		/// Derived classes override this method to declare the message type. This will be used
-		/// to populate the type entry of the outging message.
+		/// Derived classes override this method to declare the message type. This will be used to populate the type entry of the outging message.
 		/// </summary>
 		/// <see cref="MessageType" />
 		/// <returns>String identifying the message type.</returns>

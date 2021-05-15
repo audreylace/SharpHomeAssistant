@@ -8,11 +8,9 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	/// <typeparam name="ServiceDataType">Type of the ServiceData field.</typeparam>
 	public class CallServiceMessage<ServiceDataType> : CommandMessageBase
 	{
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <returns>A string with a value of "call_service."</returns>
+#pragma warning disable CS1591
 		protected override string GetMessageType() => "call_service";
+#pragma warning restore CS1591
 
 		/// <summary>
 		/// The domain of the service. Aka light in "light.turn_on."
@@ -28,7 +26,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 
 
 		/// <summary>
-		/// Arguemnts to send to the service.
+		/// Arguments to send to the service.
 		/// </summary>
 		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
 		[JsonPropertyName("service_data")]

@@ -10,13 +10,10 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	/// <see cref="SubscribeEventsMessage" />
 	public class UnsubscribeEventsMessage : CommandMessageBase
 	{
-		/// <summary>
-		/// Used by OutgoingMessageBase to populate the message type field. Message type field is used
-		/// by the remote home assistant instance to know what type of message this is.
-		/// </summary>
-		/// <returns>String identifying this message type.</returns>
-		protected override string GetMessageType() => "unsubscribe_events";
 
+#pragma warning disable CS1591
+		protected override string GetMessageType() => "unsubscribe_events";
+#pragma warning restore CS1591
 
 		/// <summary>
 		/// The command id of the initial SubscribeEventsMessage.

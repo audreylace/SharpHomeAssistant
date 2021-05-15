@@ -5,11 +5,8 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	/// </summary>
 	public class FetchStatesMessage : CommandMessageBase
 	{
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <returns>A string with the value of "get_states."</returns>
+#pragma warning disable CS1591
 		protected override string GetMessageType() => "get_states";
-
+#pragma warning restore CS1591
 	}
 }
