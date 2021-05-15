@@ -6,7 +6,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
 	internal class AuthMessage : OutgoingMessageBase
 	{
-		public override string GetMessageType() => "auth";
+		protected override string GetMessageType() => "auth";
 
 		[JsonPropertyName("access_token")]
 		public string AccessToken { get; set; }

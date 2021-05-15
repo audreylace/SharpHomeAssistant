@@ -3,7 +3,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
 	public class PingMessage : CommandMessageBase
 	{
-		public override string GetMessageType() => "ping";
+		protected override string GetMessageType() => "ping";
 
 	}
 }

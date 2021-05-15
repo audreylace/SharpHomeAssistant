@@ -8,7 +8,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 
 	public class SubscribeEventsMessage : CommandMessageBase
 	{
-		public override string GetMessageType() => "subscribe_events";
+		protected override string GetMessageType() => "subscribe_events";
 
 		[JsonPropertyName("event_type")]
 		[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

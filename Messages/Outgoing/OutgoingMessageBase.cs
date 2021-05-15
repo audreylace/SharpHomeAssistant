@@ -6,7 +6,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	public abstract class OutgoingMessageBase
 	{
 
-		public abstract string GetMessageType();
+		protected abstract string GetMessageType();
 
 		[JsonPropertyName("type")]
 		public string MessageType { get => GetMessageType(); }
