@@ -18,7 +18,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		/// Returns the string value of message type.
 		/// </summary>
 		/// <remarks>
-		/// Application code should use TryConvert instead of this method. This method's main purposevis to support json conversions and other internal operations.
+		/// Application code should use TryConvert instead of this method. This method's main purpose is to support json conversions and other internal operations.
 		/// </remarks>
 		/// <param name="messageType">The C# type to extract the message string from.</param>
 		/// <see cref="TryConvert" />
