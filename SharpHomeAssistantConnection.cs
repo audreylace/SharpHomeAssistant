@@ -136,7 +136,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		/// <param name="serverUri">URI of the server to connect to.</param>
 		/// <param name="cancellationToken"></param>
 		/// <exception cref="InvalidOperationException">
-		/// Throws an invalid operation excepption if this class is not in the NotConnected state.
+		/// Throws an invalid operation exception if this class is not in the NotConnected state.
 		/// </exception>
 		/// <exception cref="ConnectFailedException">
 		/// Thrown when the remote server rejects the authentication message or a websocket failure is encountered during the connect attempt.
