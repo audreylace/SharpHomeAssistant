@@ -4,12 +4,13 @@ using AudreysCloud.Community.SharpHomeAssistant.Utils;
 
 namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 {
-	internal class IncomingMessageConverter : AlgebraicTypeConverter<IncomingMessageBase, string>
+	public class IncomingMessageConverter : AlgebraicTypeConverter<IncomingMessageBase, string>
 	{
 		public override bool CanConvert(Type typeToConvert)
 		{
 			return typeToConvert.IsAssignableTo(typeof(IncomingMessageBase));
 		}
+
 		public IncomingMessageConverter() : base()
 		{
 			Converters.Add(new AuthRequiredMessageConverter());
@@ -18,6 +19,12 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			Converters.Add(new ResultMessageConverter());
 			Converters.Add(new EventMessageConverter());
 		}
+
+		public void AddConverter<T>(IncomingMessageBaseConverter<T> converter) where T : IncomingMessageBase
+		{
+			Converters.Add(converter);
+		}
+
 		protected override IncomingMessageBase OnReadConverterNotFound(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
 		{
 			using (JsonDocument document = JsonDocument.ParseValue(ref reader))

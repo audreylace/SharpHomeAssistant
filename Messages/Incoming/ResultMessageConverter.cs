@@ -10,7 +10,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			return JsonSerializer.Deserialize<ResultMessage>(ref reader, options);
 		}
 
-		public override void Write(Utf8JsonWriter writer, IncomingMessageBase value, JsonSerializerOptions options)
+		public override void Write(Utf8JsonWriter writer, IncomingMessageBase value, string typeToConvert, JsonSerializerOptions options)
 		{
 			ResultMessage message = (ResultMessage)value;
 			JsonSerializer.Serialize<ResultMessage>(writer, message, options);

@@ -6,7 +6,7 @@ using System.Text.Json.Serialization;
 #nullable enable
 namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 {
-	internal abstract class AlgebraicTypeConverter<TypeToConvert, DiscriminatorType> : JsonConverter<TypeToConvert>
+	public abstract class AlgebraicTypeConverter<TypeToConvert, DiscriminatorType> : JsonConverter<TypeToConvert>
 	{
 
 		protected List<IAlgebraicTypeConverter<TypeToConvert, DiscriminatorType>> Converters { get; set; }
@@ -28,7 +28,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 			throw new JsonException();
 		}
 
-		protected virtual TypeToConvert? OnWriteConverterNotFound(Utf8JsonWriter writer, TypeToConvert value, JsonSerializerOptions options)
+		protected virtual TypeToConvert? OnWriteConverterNotFound(Utf8JsonWriter writer, TypeToConvert value, DiscriminatorType typeValue, JsonSerializerOptions options)
 		{
 			throw new JsonException();
 		}
@@ -55,16 +55,17 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 		{
 			JsonSerializerOptions optionClone = new JsonSerializerOptions(options);
 			optionClone.Converters.Remove(this);
-			int index = Converters.FindIndex((c) => c.CanConvert(GetDiscriminatorTypeFromValue(value)));
+			DiscriminatorType typeName = GetDiscriminatorTypeFromValue(value);
+			int index = Converters.FindIndex((c) => c.CanConvert(typeName));
 
 			if (index == -1)
 			{
 
-				OnWriteConverterNotFound(writer, value, optionClone);
+				OnWriteConverterNotFound(writer, value, typeName, optionClone);
 			}
 			else
 			{
-				Converters[index].Write(writer, value, optionClone);
+				Converters[index].Write(writer, value, typeName, optionClone);
 			}
 		}
 

@@ -41,8 +41,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		// is cancelled the class is put into the abort state.
 		private CancellationTokenSource _forceShutdown;
 
-		// Json options used to control Json serialization/unserialization.
-		private JsonSerializerOptions _jsonSerializerOptions { get; set; }
+
 
 		// Running send task. Consumes messages off of the write channel and sends them to the remote HA instance over the websocket.
 		// Messages are sent over this channel via the DoSendAsync method. 
@@ -54,11 +53,23 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 		private Task _receiveTask;
 
 
+
 		#endregion Private Fields
 
 		#region Public Members
 
 		#region Public Properties
+
+
+		/// <summary>
+		/// JSON options used to control Json serialization/unserialization.
+		/// </summary>
+		public JsonSerializerOptions JsonSerializerOptions { get; set; }
+
+		/// <summary>
+		/// JSON Converter that handles conversion of incoming messages.This is not used to convert outgoing messages. Custom converter for those should be added to the JsonSerializerOptions converter list.
+		/// </summary>
+		public IncomingMessageConverter MessageConverter { get; private set; }
 
 		/// <summary>
 		/// State of the connection.
@@ -90,8 +101,9 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			State = SharpHomeAssistantConnectionState.NotConnected;
 			MaxMessageSize = 1024 * 1024; // 1 Megabyte
 
-			_jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-			_jsonSerializerOptions.Converters.Add(new IncomingMessageConverter());
+			MessageConverter = new IncomingMessageConverter();
+			JsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+			JsonSerializerOptions.Converters.Add(MessageConverter);
 
 			_forceShutdown = new CancellationTokenSource();
 		}
@@ -473,7 +485,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 						//
 						// Don't pass in a token to the json serializer. At this point we have the message from the channel so if we abort we could loose it!.
 						//
-						IncomingMessageBase message = await JsonSerializer.DeserializeAsync<IncomingMessageBase>(stream, _jsonSerializerOptions);
+						IncomingMessageBase message = await JsonSerializer.DeserializeAsync<IncomingMessageBase>(stream, JsonSerializerOptions);
 						return message;
 					}
 					catch (Exception ex) when (ex is JsonException || ex is NotSupportedException)
@@ -501,7 +513,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 			try
 			{
-				messageToSend = JsonSerializer.SerializeToUtf8Bytes(message, typeof(T), _jsonSerializerOptions);
+				messageToSend = JsonSerializer.SerializeToUtf8Bytes(message, typeof(T), JsonSerializerOptions);
 				if (messageToSend.Length < 2)
 				{
 					throw new SharpHomeAssistantProtocolException("Serialized message is invalid.");

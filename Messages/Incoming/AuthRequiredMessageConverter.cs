@@ -14,7 +14,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			return new AuthRequiredMessage();
 		}
 
-		public override void Write(Utf8JsonWriter writer, IncomingMessageBase value, JsonSerializerOptions options)
+		public override void Write(Utf8JsonWriter writer, IncomingMessageBase value, string typeToConvert, JsonSerializerOptions options)
 		{
 			writer.WriteStartObject();
 			WriteTypeAttribute(writer);

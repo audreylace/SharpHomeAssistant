@@ -11,7 +11,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			return JsonSerializer.Deserialize<PongMessage>(ref reader, options);
 		}
 
-		public override void Write(Utf8JsonWriter writer, IncomingMessageBase value, JsonSerializerOptions options)
+		public override void Write(Utf8JsonWriter writer, IncomingMessageBase value, string typeToConvert, JsonSerializerOptions options)
 		{
 			PongMessage message = (PongMessage)value;
 			JsonSerializer.Serialize<PongMessage>(writer, message, options);
