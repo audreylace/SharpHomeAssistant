@@ -20,21 +20,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 		protected List<IAlgebraicTypeConverter<TypeToConvert, DiscriminatorType>> Converters { get; set; }
 
 		/// <summary>
-		/// Reads the input JSON and returns the value of the descriminator field.
-		/// </summary>
-		/// <param name="reader">JSON reader used to read the JSON input stream.</param>
-		/// <param name="options">JSON converter options.</param>
-		/// <returns>The value of the descriminator field.</returns>
-		protected abstract DiscriminatorType GetDiscriminatorTypeFromJson(ref Utf8JsonReader reader, JsonSerializerOptions options);
-
-		/// <summary>
-		/// Given a C# object in the union, returns the descriminator value of that object.
-		/// </summary>
-		/// <param name="value">The C# object to extract the descriminator value from.</param>
-		/// <returns>The value of the field.</returns>
-		protected abstract DiscriminatorType GetDiscriminatorTypeFromValue(TypeToConvert value);
-
-		/// <summary>
 		/// Default Constructor
 		/// </summary>
 		public AlgebraicTypeConverter()
@@ -51,24 +36,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 		{
 			return t.IsAssignableTo(typeof(TypeToConvert));
 		}
-
-		/// <summary>
-		/// Handles the case when a valid converter is not found in the converter list as part of a read operation.
-		/// </summary>
-		/// <param name="reader">JSON stream reader.</param>
-		/// <param name="discriminatorType">The value of the descriminator field.</param>
-		/// <param name="options">JSON converter options.</param>
-		/// <returns>The C# representation of the converted object.</returns>
-		protected abstract TypeToConvert? OnReadConverterNotFound(ref Utf8JsonReader reader, DiscriminatorType discriminatorType, JsonSerializerOptions options);
-
-		/// <summary>
-		/// Handles the case when a valid converter is not found in the converter list as part of a write operation.
-		/// </summary>
-		/// <param name="writer">Json stream writer.</param>
-		/// <param name="value">The C# object to convert to JSON.</param>
-		/// <param name="typeValue">The value of the descriminator field.</param>
-		/// <param name="options">JSON convertion options.</param>
-		protected abstract void OnWriteConverterNotFound(Utf8JsonWriter writer, TypeToConvert value, DiscriminatorType typeValue, JsonSerializerOptions options);
 
 		/// <summary>
 		/// Read method invoked by the json converter. Creates the C# object from the input JSON.
@@ -120,6 +87,39 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Utils
 				Converters[index].Write(writer, value, typeName, optionClone);
 			}
 		}
+
+		/// <summary>
+		/// Reads the input JSON and returns the value of the descriminator field.
+		/// </summary>
+		/// <param name="reader">JSON reader used to read the JSON input stream.</param>
+		/// <param name="options">JSON converter options.</param>
+		/// <returns>The value of the descriminator field.</returns>
+		protected abstract DiscriminatorType GetDiscriminatorTypeFromJson(ref Utf8JsonReader reader, JsonSerializerOptions options);
+
+		/// <summary>
+		/// Given a C# object in the union, returns the descriminator value of that object.
+		/// </summary>
+		/// <param name="value">The C# object to extract the descriminator value from.</param>
+		/// <returns>The value of the field.</returns>
+		protected abstract DiscriminatorType GetDiscriminatorTypeFromValue(TypeToConvert value);
+
+		/// <summary>
+		/// Handles the case when a valid converter is not found in the converter list as part of a read operation.
+		/// </summary>
+		/// <param name="reader">JSON stream reader.</param>
+		/// <param name="discriminatorType">The value of the descriminator field.</param>
+		/// <param name="options">JSON converter options.</param>
+		/// <returns>The C# representation of the converted object.</returns>
+		protected abstract TypeToConvert? OnReadConverterNotFound(ref Utf8JsonReader reader, DiscriminatorType discriminatorType, JsonSerializerOptions options);
+
+		/// <summary>
+		/// Handles the case when a valid converter is not found in the converter list as part of a write operation.
+		/// </summary>
+		/// <param name="writer">Json stream writer.</param>
+		/// <param name="value">The C# object to convert to JSON.</param>
+		/// <param name="typeValue">The value of the descriminator field.</param>
+		/// <param name="options">JSON convertion options.</param>
+		protected abstract void OnWriteConverterNotFound(Utf8JsonWriter writer, TypeToConvert value, DiscriminatorType typeValue, JsonSerializerOptions options);
 
 	}
 }
