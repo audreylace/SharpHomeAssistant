@@ -87,5 +87,19 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		{
 			return MessageTypeAttribute.GetMessageTypeString(message.GetType());
 		}
+
+		/// <summary>
+		/// Writer to handle converting a object with not corresponding handler. It is not implemented in this class.
+		/// </summary>
+		/// <exception cref="NotImplementedException">Thrown when this method is invoked.</exception>
+		/// <param name="writer"></param>
+		/// <param name="value"></param>
+		/// <param name="typeValue"></param>
+		/// <param name="options"></param>
+		/// <returns></returns>
+		protected override void OnWriteConverterNotFound(Utf8JsonWriter writer, IncomingMessageBase value, string typeValue, JsonSerializerOptions options)
+		{
+			throw new NotImplementedException();
+		}
 	}
 }
