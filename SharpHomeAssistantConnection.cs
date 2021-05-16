@@ -371,7 +371,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 				_sendChannel = Channel.CreateBounded<byte[]>(1);
 				_receiveChannel = Channel.CreateBounded<MemoryStream>(1);
 
-				_sendTask = SendMessagesAndPlaceOnQueueAsync();
+				_sendTask = SendMessagesPlacedOnQueueAsync();
 				_receiveTask = ReceiveMessagesAndPlaceOnQueueAsync();
 
 				try
@@ -471,7 +471,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 					try
 					{
 						//
-						//Don't pass in a token to the json serializer. At this point we have the message from the channel so if we abort we could loose it!.
+						// Don't pass in a token to the json serializer. At this point we have the message from the channel so if we abort we could loose it!.
 						//
 						IncomingMessageBase message = await JsonSerializer.DeserializeAsync<IncomingMessageBase>(stream, _jsonSerializerOptions);
 						return message;
@@ -584,7 +584,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 
 		}
 
-		private async Task SendMessagesAndPlaceOnQueueAsync()
+		private async Task SendMessagesPlacedOnQueueAsync()
 		{
 			try
 			{
