@@ -20,6 +20,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 			Converters.Add(new PongMessageConverter());
 			Converters.Add(new ResultMessageConverter());
 			Converters.Add(new EventMessageConverter());
+			Converters.Add(new UnknownMessageConverter());
 		}
 
 
@@ -44,15 +45,8 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		/// <see cref="UnknownMessage" />
 		protected override IncomingMessageBase OnReadConverterNotFound(ref Utf8JsonReader reader, string typeToConvert, JsonSerializerOptions options)
 		{
-			using (JsonDocument document = JsonDocument.ParseValue(ref reader))
-			{
-				UnknownMessage unknownMessage = new UnknownMessage();
-
-				unknownMessage.Message = document.RootElement.Clone();
-				unknownMessage.UnknownMessageType = typeToConvert;
-
-				return unknownMessage;
-			}
+			UnknownMessageConverter converter = new UnknownMessageConverter();
+			return converter.Read(ref reader, typeToConvert, options);
 		}
 
 		/// <summary>
