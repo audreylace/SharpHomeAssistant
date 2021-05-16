@@ -10,11 +10,10 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	/// </summary>
 	public class SubscribeEventsMessage : CommandMessageBase
 	{
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <returns>A string with the value of "subscribe_events."</returns>
+
+#pragma warning disable CS1591
 		protected override string GetMessageType() => "subscribe_events";
+#pragma warning restore CS1591
 
 		/// <summary>
 		/// The name of the event to subscribe too. If left empty, then all events are subscribed to.
