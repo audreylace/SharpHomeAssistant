@@ -6,6 +6,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 	/// <summary>
 	/// Attribute used to specify the type of message.
 	/// </summary>
+	[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 	public class MessageTypeAttribute : System.Attribute
 	{
 		/// <summary>
