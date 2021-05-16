@@ -431,7 +431,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant
 			if (!IncomingMessageBase.TryConvert<WantedMessageType>(incomingMessage, out outMessage))
 			{
 				throw new SharpHomeAssistantProtocolException(String.Format("Expected message with type {0} but instead got {1}.",
-					IncomingMessageBase.GetMessageTypeString(typeof(WantedMessageType)), incomingMessage.MessageType));
+					MessageTypeAttribute.GetMessageTypeString(typeof(WantedMessageType)), incomingMessage.MessageType));
 			}
 
 			return outMessage;

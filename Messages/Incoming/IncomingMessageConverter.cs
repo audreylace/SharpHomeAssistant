@@ -50,7 +50,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 
 		protected override string GetDiscriminatorTypeFromValue(IncomingMessageBase message)
 		{
-			return IncomingMessageBase.GetMessageTypeString(message.GetType());
+			return MessageTypeAttribute.GetMessageTypeString(message.GetType());
 		}
 	}
 }

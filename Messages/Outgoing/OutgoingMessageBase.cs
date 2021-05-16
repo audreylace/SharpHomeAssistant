@@ -18,7 +18,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		protected virtual string GetMessageType()
 		{
 			Type myType = GetType();
-			return IncomingMessageBase.GetMessageTypeString(myType);
+			return MessageTypeAttribute.GetMessageTypeString(myType);
 
 		}
 

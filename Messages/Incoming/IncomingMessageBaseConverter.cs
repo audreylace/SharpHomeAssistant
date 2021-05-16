@@ -9,7 +9,7 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		{
 			return MessageType == typeId;
 		}
-		protected string MessageType => IncomingMessageBase.GetMessageTypeString(typeof(Type));
+		protected string MessageType => MessageTypeAttribute.GetMessageTypeString(typeof(Type));
 
 		protected void WriteTypeAttribute(Utf8JsonWriter writer)
 		{
