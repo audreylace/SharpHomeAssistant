@@ -14,14 +14,12 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		/// <summary>
 		/// True when the action was a success.
 		/// </summary>
-		[JsonPropertyName("success")]
 		public bool Success { get; set; }
 
 		/// <summary>
 		/// Data sent back as a result of the command. This is a JsonElement.
 		/// </summary>
 		/// <see cref="JsonElement" />
-		[JsonPropertyName("result")]
 		public object Result { get; set; }
 
 		/// <summary>

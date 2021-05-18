@@ -11,13 +11,11 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		/// <summary>
 		/// A code identifying the type of error.
 		/// </summary>
-		[JsonPropertyName("code")]
 		public string Code { get; set; }
 
 		/// <summary>
 		/// A human readable message describing the error.
 		/// </summary>
-		[JsonPropertyName("message")]
 		public string Message { get; set; }
 	}
 }

@@ -22,7 +22,6 @@ namespace AudreysCloud.Community.SharpHomeAssistant.Messages
 		/// The Event data. If present, this will be a JsonElement per the specs of System.Text.Json.
 		/// </summary>
 		/// <see cref="JsonElement" />
-		[JsonPropertyName("event")]
 		public object Event { get; set; }
 
 	}
